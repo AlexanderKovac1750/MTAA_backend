@@ -26,19 +26,7 @@ def get_stores():
     tables=cursor.fetchall()
     return {"stores": tables}
 
-@app.get("/login")
-def try_to_login():
-    name = request.args.get('name')
-    password = request.args.get('password')
-    cursor.execute("""
-        SELECT table_name 
-        FROM information_schema.tables
-        WHERE table_schema = 'public'  -- Change if you're using a different schema
-        ORDER BY table_name;
-    """)
-    tables=cursor.fetchall()
-    print(name, password)
-    return {"stores": tables}
+
 
 @app.post("/fav")
 def add_fav():
@@ -245,6 +233,16 @@ def register_user(name, password):
     print(salt)
     print(pass_hash)
     print("------")
+
+    cursor.execute("""
+        SELECT password, salt 
+        FROM public."user"
+        WHERE name= %s ;
+        """,(name,))
+    res=cursor.fetchone()
+    if(res!=None):
+        return False
+    
     try:
         cursor.execute("""
         INSERT INTO public."user"(
@@ -258,7 +256,7 @@ def register_user(name, password):
             """, (name, pass_hash, salt))
         connection.commit()
     except:
-        return False
+        return None
     return True
 def login(name, password):
     name=str(name)
@@ -362,4 +360,32 @@ print(add_dish_to_menu("zemiaky",(140,1.05),(240,1.79),(360,2.50),
                        "g","chutne",0.1,None))
 set_today_special("vodka")
 
+
+
+#----------
+@app.get("/login")
+def try_to_login():
+    name = request.args.get('name')
+    password = request.args.get('password')
+    if(login(name,password)):
+        return "correct password",200
+    else:
+        return "wrong password",401
+
+@app.get("/register")
+def try_to_register():
+    name = request.args.get('name')
+    password = request.args.get('password')
+    res = register_user(name,password)
+    if(res==None):
+        res = register_user(name,password)
+    if(res == True):
+        return "registration successful", 201
+    elif(res==None):
+        return "something went wrong, try again",500
+    else:
+        return "username already taken",409
+
+
+#---------
 app.run()
