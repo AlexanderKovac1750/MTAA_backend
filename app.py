@@ -7,12 +7,44 @@ app = Flask(__name__)
 
 connection=psycopg2.connect(
     host="localhost",
-    database="MTAA",
+    database="test1",
     user="postgres",
-    password="123"
+    password="AkoBkoDko1666"
     )
 cursor = connection.cursor()
 
+def find_in_database(table, column, value):
+    cursor.execute(f"""
+        SELECT id 
+        FROM public.{table}
+        WHERE {column}= %s ;
+        """,(value,))
+    res_id=cursor.fetchone()
+    if(res_id==None):
+        return None
+    return res_id[0]
+
+def get_from_database(target, table, column, value):
+    cursor.execute(f"""
+        SELECT {target} 
+        FROM public.{table}
+        WHERE {column}= %s ;
+        """,(value,))
+    res_id=cursor.fetchone()
+    if(res_id==None):
+        return None
+    return res_id[0]
+
+def set_in_database(table, column, value, in_column, in_value):
+    cursor.execute(f"""
+        UPDATE public.{table} 
+        SET {in_column}= %s
+        WHERE {column}= %s ;
+        """,(in_value, value,))
+    res_id=cursor.fetchone()
+    if(res_id==None):
+        return None
+    return res_id[0]
 
 
 @app.get("/store")
@@ -26,33 +58,6 @@ def get_stores():
     tables=cursor.fetchall()
     return {"stores": tables}
 
-
-
-@app.post("/fav")
-def add_fav():
-    food = request.args.get('food')
-    cursor.execute("""
-        SELECT table_name 
-        FROM information_schema.tables
-        WHERE table_schema = 'public'  -- Change if you're using a different schema
-        ORDER BY table_name;
-    """)
-    tables=cursor.fetchall()
-    print("new fav ",food)
-    return {"stores": tables}
-
-@app.delete("/fav")
-def del_fav():
-    food = request.args.get('food')
-    cursor.execute("""
-        SELECT table_name 
-        FROM information_schema.tables
-        WHERE table_schema = 'public'  -- Change if you're using a different schema
-        ORDER BY table_name;
-    """)
-    tables=cursor.fetchall()
-    print("del fav ",food)
-    return {"stores": tables}
 
 @app.put("/preferences")
 def change_settings():
@@ -252,12 +257,13 @@ def register_user(name, password):
             VALUES (
             gen_random_uuid(), %s, %s, %s, 
             0, 0, 0, 
-            0, 0, null);
+            0, 1, null);
             """, (name, pass_hash, salt))
         connection.commit()
     except:
         return None
     return True
+
 def login(name, password):
     name=str(name)
     password=str(password)
@@ -278,6 +284,79 @@ def login(name, password):
     pass_hash=sha256.hexdigest().encode()
     
     return password_salt[0].tobytes() == pass_hash
+
+@app.put("/change_password")
+def change_password():
+    name = request.args.get("name")
+    old_password = request.args.get("old_password")
+    new_password = request.args.get("new_password")
+
+    if not find_in_database("user", "name", name):
+        return "incorrect user name"
+
+    # print(name, old_password, new_password)
+    if login(name, old_password):
+        user_salt = random.randbytes(8)
+        sha256 = hashlib.sha256()
+        sha256.update(new_password.encode())
+        sha256.update(user_salt)
+        pass_hash = sha256.hexdigest().encode()
+
+
+        try:
+            cursor.execute("""
+            UPDATE "user" 
+            SET password = %s, salt = %s
+            WHERE name = %s ;
+            """,(pass_hash, user_salt, name))
+        except:
+            return "something went wrong during password update"
+        return "password changed successfully"
+    else:
+        return "incorrect old password"
+
+@app.post("/add_favourite")
+def add_favourite():
+    name = request.args.get("name")
+    dish_name = request.args.get("dish_name")
+
+    dish_id = find_in_database("dish", "title", dish_name)
+
+    if not (dish_id):
+        return "dish does not exist"
+
+    if not find_in_database("user", "name", name):
+        return "invalid user"
+
+    user_id = find_in_database("user", "name", name)
+
+    cursor.execute("""
+    SELECT dish_id 
+    FROM public."favourites"
+    WHERE user_id = %s and dish_id = %s; 
+    """, (user_id, dish_id))
+    check=cursor.fetchone()
+
+    if check:
+        return "dish is already favourite"
+
+
+    fav_free = get_from_database("favourite_free", "user", "name", name)
+    if fav_free == 0:
+        return "no space left, sorry :c"
+
+    try:
+        cursor.execute("""
+        INSERT INTO "favourites"(
+        id, user_id, dish_id)
+        VALUES (gen_random_uuid(), %s, %s)
+        """, (user_id, dish_id))
+    except:
+        return "something went wrong during add favourite"
+
+    set_in_database("user", "id", user_id, "favourite_free", fav_free-1)
+
+    return "added favourite successfully"
 
 def add_discount_option(effectivness, cost):
     try:
