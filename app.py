@@ -2,28 +2,29 @@ from flask import Flask, request
 import psycopg2
 import random
 import hashlib
+import json
 
 app = Flask(__name__)
 
 connection=psycopg2.connect(
     host="localhost",
-    database="test1",
+    database="MTAA",
     user="postgres",
-    password="AkoBkoDko1666"
+    password="123"
     )
 cursor = connection.cursor()
 
 def find_in_database(table, column, value):
-    cursor.execute(f"""
-        SELECT id 
-        FROM public.{table}
-        WHERE {column}= %s ;
-        """,(value,))
-    res_id=cursor.fetchone()
-    if(res_id==None):
-        return None
-    return res_id[0]
-
+     cursor.execute(f"""
+         SELECT id 
+         FROM public.{table}
+         WHERE {column}= %s ;
+         """,(value,))
+     res_id=cursor.fetchone()
+     if(res_id==None):
+         return None
+     return res_id[0]
+ 
 def get_from_database(target, table, column, value):
     cursor.execute(f"""
         SELECT {target} 
@@ -34,7 +35,7 @@ def get_from_database(target, table, column, value):
     if(res_id==None):
         return None
     return res_id[0]
-
+ 
 def set_in_database(table, column, value, in_column, in_value):
     cursor.execute(f"""
         UPDATE public.{table} 
@@ -45,7 +46,7 @@ def set_in_database(table, column, value, in_column, in_value):
     if(res_id==None):
         return None
     return res_id[0]
-
+ 
 
 @app.get("/store")
 def get_stores():
@@ -107,7 +108,7 @@ def init_DB():
 
         CREATE TABLE IF NOT EXISTS public.order_item
         (
-            id uuid,
+            id bigserial,
             portion integer,
             count integer,
             price money,
@@ -123,7 +124,8 @@ def init_DB():
             comment text,
             price money,
             discount_used uuid,
-            items_id uuid[],
+            items_start bigint,
+            items_end bigint,
             PRIMARY KEY (id)
         );
 
@@ -192,6 +194,7 @@ def init_DB():
             high_contrast boolean,
             PRIMARY KEY (id)
         );
+
         END;
         """)
     connection.commit()
@@ -220,6 +223,10 @@ def clear_DB():
                 WHERE true;
         DELETE FROM public.preferences
                 WHERE true;
+        SELECT SETVAL(
+            pg_get_serial_sequence('order_item', 'id'),
+            (SELECT COALESCE(MAX(id), 1) FROM order_item)
+        );
 	""")
     connection.commit()
     print("cleared DB")
@@ -264,6 +271,15 @@ def register_user(name, password):
         return None
     return True
 
+def add_points_to(discount, loyalty, name):
+    cursor.execute("""
+        UPDATE public."user"
+        SET discount_points = discount_points + %s,
+        loyalty_points = loyalty_points + %s
+        WHERE name = %s;
+        """,(discount, loyalty,name))
+    connection.commit()
+    
 def login(name, password):
     name=str(name)
     password=str(password)
@@ -290,10 +306,10 @@ def change_password():
     name = request.args.get("name")
     old_password = request.args.get("old_password")
     new_password = request.args.get("new_password")
-
+ 
     if not find_in_database("user", "name", name):
         return "incorrect user name"
-
+ 
     # print(name, old_password, new_password)
     if login(name, old_password):
         user_salt = random.randbytes(8)
@@ -301,8 +317,8 @@ def change_password():
         sha256.update(new_password.encode())
         sha256.update(user_salt)
         pass_hash = sha256.hexdigest().encode()
-
-
+ 
+ 
         try:
             cursor.execute("""
             UPDATE "user" 
@@ -314,22 +330,22 @@ def change_password():
         return "password changed successfully"
     else:
         return "incorrect old password"
-
+ 
 @app.post("/add_favourite")
 def add_favourite():
     name = request.args.get("name")
     dish_name = request.args.get("dish_name")
-
+ 
     dish_id = find_in_database("dish", "title", dish_name)
-
+ 
     if not (dish_id):
         return "dish does not exist"
-
+ 
     if not find_in_database("user", "name", name):
         return "invalid user"
-
+ 
     user_id = find_in_database("user", "name", name)
-
+ 
     cursor.execute("""
     SELECT dish_id 
     FROM public."favourites"
@@ -339,12 +355,12 @@ def add_favourite():
 
     if check:
         return "dish is already favourite"
-
-
+ 
+ 
     fav_free = get_from_database("favourite_free", "user", "name", name)
     if fav_free == 0:
         return "no space left, sorry :c"
-
+ 
     try:
         cursor.execute("""
         INSERT INTO "favourites"(
@@ -353,10 +369,11 @@ def add_favourite():
         """, (user_id, dish_id))
     except:
         return "something went wrong during add favourite"
-
+ 
     set_in_database("user", "id", user_id, "favourite_free", fav_free-1)
-
+ 
     return "added favourite successfully"
+ 
 
 def add_discount_option(effectivness, cost):
     try:
@@ -417,12 +434,163 @@ def set_today_special(dish_name):
     else:
         return False
     return True
-    
+
+def find_in_database(table, column, value):
+    cursor.execute(f"""
+        SELECT id 
+        FROM public.{table}
+        WHERE {column}= %s ;
+        """,(value,))
+    res_id=cursor.fetchone()
+    if(res_id==None):
+        return None
+    return res_id[0]
+
+def get_from_database(target, table, column, value):
+    cursor.execute(f"""
+        SELECT {target} 
+        FROM public.{table}
+        WHERE {column}= %s ;
+        """,(value,))
+    res_id=cursor.fetchone()
+    if(res_id==None):
+        return None
+    return res_id[0]
+
+def set_in_database(table, column, value, in_column, in_value):
+    cursor.execute(f"""
+        UPDATE public.{table} 
+        SET {in_column}= %s
+        WHERE {column}= %s
+        RETURNING id;
+        """,(in_value, value,))
+    res_id=cursor.fetchone()
+    if(res_id==None):
+        return None
+    return res_id[0]
+
+def add_order(user_id, items, comment, discount):
+    print(f"adding order by {user_id} with discount {discount}")
+    print("items:",items)
+    print("comment:",comment)
+    ids=[]
+
+    #get discount effect
+    try:
+        disc_cost=get_from_database("cost", "discounts", "id",discount)
+    except:
+        connection.commit()
+        return ("invalid discount format",)
+    if(disc_cost != None):
+        user_disc_points=get_from_database("discount_points", "user", "id",user_id)
+        if(user_disc_points<disc_cost):
+            return (f"not enough discount points {user_disc_points}<{disc_cost}",)
+        disc_effect=get_from_database("effectivness", "discounts", "id",discount)
+    elif(discount != None):
+        return ("invalid discount",)
+    else:
+        disc_effect=0.0
+        disc_cost=0
+
+    #add order items
+    try:
+        for item in items:
+            cursor.execute("""
+                INSERT INTO public.order_item(
+                id, portion, count, price, dish_id)
+                VALUES (DEFAULT,%s,%s,0,%s)
+                RETURNING id;
+                """,(item[1],item[2],item[0],))
+            ids.append(cursor.fetchone()[0])
+    except:
+        print("order item serial ID overflow")
+        return None
+    connection.commit()
+    order_start=min(ids)
+    order_end=max(ids)
+
+    #calculate prices
+    try:
+        cursor.execute("""
+            UPDATE public.order_item AS items
+            SET price = (CASE
+            WHEN portion=1 THEN dish.small_price
+            WHEN portion=2 THEN dish.medium_price
+            ELSE dish.large_price END)*count
+            FROM public.dish AS dish WHERE dish.id=dish_id
+            AND %s <= items.id and items.id <= %s;
+            """,(order_start, order_end,))
+    except:
+        print("failed to calculate price of order items")
+        return None
+    connection.commit()
+
+    #check for nonexistant portion size
+    cursor.execute("""
+        SELECT title, (CASE
+        WHEN portion=1 THEN 'small'
+        WHEN portion=2 THEN 'medium'
+        ELSE 'large' END)
+        FROM public.dish AS dish
+        JOIN public.order_item AS items ON dish.id=dish_id
+        WHERE %s <= items.id and items.id <= %s and items.price IS NULL;
+        """, (order_start, order_end,))
+    res=cursor.fetchall()
+    if(res):
+        return res
+
+    #adjust prices for favourite foods
+    cursor.execute("""
+        UPDATE public.order_item AS items
+        SET price = price * (1-discount_base)
+        FROM public.favourites AS fav
+        JOIN public.dish as dish
+        ON fav.user_id=%s AND fav.dish_id=dish.id
+        WHERE fav.dish_id=items.dish_id
+        AND %s <= items.id and items.id <= %s;
+        """, (user_id, order_start, order_end,))
+    connection.commit()
+
+    #calculate total price including discount
+    cursor.execute("""
+        SELECT SUM(price)*(1.0-%s)
+        FROM public.order_item
+        WHERE %s <= id and id <= %s;
+        """, (disc_effect, order_start, order_end,))
+    total_price=cursor.fetchone()[0]
+    print(total_price)
+
+    #add order
+    order_id=None
+    try:
+        cursor.execute("""
+            INSERT INTO public."order"(
+            id, "user", "timestamp", comment,
+            price, discount_used, items_start, items_end)
+            VALUES (gen_random_uuid(), %s, NOW(), %s,
+            %s, %s, %s, %s) RETURNING id;
+            """,(user_id, comment,total_price,
+            discount, order_start, order_end))
+        order_id=cursor.fetchone()[0]
+    except:
+        connection.commit()
+        return None
+
+    #subtract discount points
+    cursor.execute("""
+        UPDATE public."user"
+        SET discount_points = discount_points - %s
+        WHERE id = %s;
+        """,(disc_cost,user_id))
+    connection.commit()
+    print(ids)
+    return order_id
 #------------
 init_DB()
 clear_DB()
 
 register_user("Peter", 123)
+add_points_to(140, 75, "Peter")
 register_user("Karol", "456")
 print("trying logging in")
 print(login("aa",56))
@@ -465,6 +633,91 @@ def try_to_register():
     else:
         return "username already taken",409
 
+@app.post("/delivery")
+def delivery():
+    
+    name = request.args.get('name')
+    user_id=find_in_database("user","name",name)
+    if(user_id == None):
+        return "invalid user"
+
+    try:
+        data=json.loads(request.data)
+    except:
+        return "wrong format"
+
+    try:
+        address=[0,0,0]
+        json_address=data["address"]
+        address[0]=str(json_address["postal code"])
+        address[1]=str(json_address["street"])
+        address[2]=int(json_address["number"])
+    except:
+        return "wrong address fromat"
+
+    try:
+        discount=data["discount used"]
+    except:
+        discount=None
+
+    try:
+        comment=data["comment"]
+    except:
+        comment=""
+    
+    try:
+        json_items=data["items"]
+    except:
+        return "no items"
+
+    #get order items
+    try:
+        items=[0]*len(json_items)
+        for i in range(len(json_items)):
+            items[i]=[0,0,0]
+            
+            items[i][0]=find_in_database("dish","title",json_items[i]["name"])
+            if(items[i][0]==None):
+                return f'nonexistant food: {json_items[i]["name"]}'
+
+            items[i][1]=json_items[i]["size"]
+            if(items[i][1]=="small"):
+                items[i][1]=1
+            elif(items[i][1]=="medium"):
+                items[i][1]=2
+            elif(items[i][1]=="large"):
+                items[i][1]=3
+            else:
+                return f"invalid portion size: {items[i][1]}"
+
+            
+            items[i][2]=int(json_items[i]["count"])
+            if(items[i][2]<1):
+                return f'wrong food count {json_items[i]["name"]}:{json_items[i]["count"]}'
+    except:
+        return "invalid food item format"
+
+    order_id=add_order(user_id, items, comment, discount)
+    if(order_id==None):
+        return "order failed"
+
+    if(order_id.__class__ == list):
+        return f"nonexistant food portion size {order_id}"
+
+    if(order_id.__class__ == tuple):
+        return order_id[0]
+
+    #add delivery
+    return "delivery order successful"
 
 #---------
+order1={
+    "items": [
+        {"name": "vodka", "size": "small", "count": 2},
+        {"name": "zemiaky", "size": "medium", "count": 3}
+    ]
+}
+print(find_in_database("dish","title","vodka"))
+print(json.dumps(order1))
+
 app.run()
