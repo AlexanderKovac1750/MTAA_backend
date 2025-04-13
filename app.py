@@ -378,7 +378,7 @@ def remove_user():
 
     return "user removed successfully"
 
-@app.post("/change_preferences")
+@app.put("/change_preferences")
 def change_preferences():
     name = request.args.get("name")
     language = request.args.get("language")
