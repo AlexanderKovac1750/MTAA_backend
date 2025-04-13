@@ -8,9 +8,9 @@ app = Flask(__name__)
 
 connection=psycopg2.connect(
     host="localhost",
-    database="MTAA",
+    database="test1",
     user="postgres",
-    password="123"
+    password="AkoBkoDko1666"
     )
 cursor = connection.cursor()
 
@@ -318,18 +318,66 @@ def change_password():
         sha256.update(user_salt)
         pass_hash = sha256.hexdigest().encode()
  
- 
         try:
             cursor.execute("""
             UPDATE "user" 
             SET password = %s, salt = %s
             WHERE name = %s ;
             """,(pass_hash, user_salt, name))
+            connection.commit()
         except:
             return "something went wrong during password update"
         return "password changed successfully"
     else:
         return "incorrect old password"
+
+@app.delete("/remove_user")
+def remove_user():
+    name = str(request.args.get("name"))
+    password = request.args.get("password")
+    user_id = find_in_database("user", "name", name)
+    print("user: ", name, user_id, type(name), type(user_id))
+
+    if not user_id:
+        return "invalid user"
+    if not login(name, password):
+        return "invalid password"
+
+    order_id = get_from_database("id", "order", "user", name)
+    if order_id:
+        return "unable to delete user during order fulfilment"
+
+    if get_from_database("id", "favourites", "user_id", user_id):
+        try:
+            cursor.execute("""
+            DELETE FROM favourites
+            WHERE user_id = %s; 
+            """, (user_id,))
+            connection.commit()
+        except:
+            return "something went wrong while deleting favourites associated with user"
+
+    if get_from_database("id", "preferences", "user_id", user_id):
+        try:
+            cursor.execute("""
+            DELETE FROM preferences
+            WHERE user_id = %s; 
+            """, (user_id,))
+            connection.commit()
+        except:
+            return "something went wrong while deleting preferences associated with user"
+
+    try:
+        cursor.execute("""
+        DELETE FROM public."user"
+        WHERE name = %s; 
+        """, (name,))
+        connection.commit()
+    except:
+        return "something went wrong while removing user"
+
+    return "user removed successfully"
+
  
 @app.post("/add_favourite")
 def add_favourite():
@@ -348,7 +396,7 @@ def add_favourite():
  
     cursor.execute("""
     SELECT dish_id 
-    FROM public."favourites"
+    FROM favourites
     WHERE user_id = %s and dish_id = %s; 
     """, (user_id, dish_id))
     check=cursor.fetchone()
@@ -363,17 +411,56 @@ def add_favourite():
  
     try:
         cursor.execute("""
-        INSERT INTO "favourites"(
+        INSERT INTO public.favourites(
         id, user_id, dish_id)
         VALUES (gen_random_uuid(), %s, %s)
         """, (user_id, dish_id))
+        connection.commit()
     except:
         return "something went wrong during add favourite"
  
     set_in_database("user", "id", user_id, "favourite_free", fav_free-1)
  
     return "added favourite successfully"
- 
+
+
+@app.delete("/remove_favourite")
+def remove_favourite():
+    name = request.args.get("name")
+    dish_name = request.args.get("dish_name")
+
+    dish_id = find_in_database("dish", "title", dish_name)
+
+    if not (dish_id):
+        return "dish does not exist"
+
+    if not find_in_database("user", "name", name):
+        return "invalid user"
+
+    user_id = find_in_database("user", "name", name)
+
+    cursor.execute("""
+        SELECT dish_id 
+        FROM favourites
+        WHERE user_id = %s and dish_id = %s; 
+        """, (user_id, dish_id))
+    check = cursor.fetchone()
+
+    if not check:
+        return "dish is not in favourites"
+
+    try:
+        cursor.execute("""
+        DELETE FROM favourites
+        WHERE user_id = %s and dish_id = %s; """,(user_id, dish_id))
+        connection.commit()
+    except:
+        return "something went wrong during remove favourite"
+
+    fav_free = get_from_database("favourite_free", "user", "name", name)
+    set_in_database("user", "id", user_id, "favourite_free", fav_free+1)
+    return "removed favourite successfully"
+
 
 def add_discount_option(effectivness, cost):
     try:
@@ -464,6 +551,7 @@ def set_in_database(table, column, value, in_column, in_value):
         WHERE {column}= %s
         RETURNING id;
         """,(in_value, value,))
+    connection.commit()
     res_id=cursor.fetchone()
     if(res_id==None):
         return None
