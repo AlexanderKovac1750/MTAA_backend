@@ -531,7 +531,7 @@ def cancel_reservation():
         WHERE id = %s; """, (order_id))
         connection.commit()
     except:
-        return "reservation cancelled, no order associated"
+        return "reservation cancelled, but no order associated"
 
     return "reservation cancelled successfully"
 
@@ -636,6 +636,8 @@ def add_order(user_id, items, comment, discount):
     print("items:",items)
     print("comment:",comment)
     ids=[]
+    if(not items):
+        return None
 
     #get discount effect
     try:
@@ -803,12 +805,12 @@ def delivery():
     name = request.args.get('name')
     user_id=find_in_database("user","name",name)
     if(user_id == None):
-        return "invalid user"
+        return "invalid user", 401
 
     try:
         data=json.loads(request.data)
     except:
-        return "wrong format"
+        return "wrong format", 400
 
     try:
         address=[0,0,0]
@@ -817,7 +819,7 @@ def delivery():
         address[1]=str(json_address["street"])
         address[2]=int(json_address["number"])
     except:
-        return "wrong address fromat"
+        return "wrong address fromat", 400
 
     try:
         discount=data["discount used"]
@@ -832,7 +834,7 @@ def delivery():
     try:
         json_items=data["items"]
     except:
-        return "no items"
+        return "no items", 400
 
     #get order items
     try:
@@ -842,7 +844,7 @@ def delivery():
             
             items[i][0]=find_in_database("dish","title",json_items[i]["name"])
             if(items[i][0]==None):
-                return f'nonexistant food: {json_items[i]["name"]}'
+                return f'nonexistant food: {json_items[i]["name"]}', 404
 
             items[i][1]=json_items[i]["size"]
             if(items[i][1]=="small"):
@@ -852,24 +854,25 @@ def delivery():
             elif(items[i][1]=="large"):
                 items[i][1]=3
             else:
-                return f"invalid portion size: {items[i][1]}"
+                return f"invalid portion size: {items[i][1]}", 400
 
             
             items[i][2]=int(json_items[i]["count"])
             if(items[i][2]<1):
-                return f'wrong food count {json_items[i]["name"]}:{json_items[i]["count"]}'
+                return f"""wrong food count {json_items[i]["name"]}:
+                    {json_items[i]["count"]}""", 400
     except:
-        return "invalid food item format"
+        return "invalid food item format", 400
 
     order_id=add_order(user_id, items, comment, discount)
     if(order_id==None):
-        return "order failed"
+        return "order failed", 500
 
     if(order_id.__class__ == list):
-        return f"nonexistant food portion size {order_id}"
+        return f"nonexistant food portion size {order_id}",404
 
     if(order_id.__class__ == tuple):
-        return order_id[0]
+        return order_id[0],400
 
     #add delivery
     cursor.execute("""
@@ -880,7 +883,7 @@ def delivery():
         %s, %s, false);
         """, (order_id, address[0],address[1],address[2]))
     connection.commit()
-    return "delivery order successful"
+    return "delivery order successful",200
 
 from datetime import datetime, timedelta
 @app.post("/reservation")
@@ -889,7 +892,7 @@ def make_reservation():
     name = request.args.get('name')
     user_id=find_in_database("user","name",name)
     if(user_id == None):
-        return "invalid user"
+        return "invalid user", 401
 
     try:
         data=json.loads(request.data)
