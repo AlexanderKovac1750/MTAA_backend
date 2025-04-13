@@ -333,10 +333,10 @@ def change_password():
 
 @app.delete("/remove_user")
 def remove_user():
-    name = str(request.args.get("name"))
+    name = request.args.get("name")
     password = request.args.get("password")
     user_id = find_in_database("user", "name", name)
-    print("user: ", name, user_id, type(name), type(user_id))
+    # print("user: ", name, user_id, type(name), type(user_id))
 
     if not user_id:
         return "invalid user"
@@ -378,7 +378,42 @@ def remove_user():
 
     return "user removed successfully"
 
- 
+@app.post("/change_preferences")
+def change_preferences():
+    name = request.args.get("name")
+    language = request.args.get("language")
+    darkmode = request.args.get("darkmode")
+    high_contrast = request.args.get("high_contrast")
+
+    user_id = find_in_database("user", "name", name)
+    if not user_id:
+        return "invalid user"
+
+    if not find_in_database("preferences", "user_id", user_id):
+        try:
+            cursor.execute("""
+            INSERT INTO public.preferences(
+            id, user_id, language, darkmode, high_contrast)
+            VALUES (gen_random_uuid(), %s, %s, %s, %s);
+            """, (user_id, 'ENG', True, False))
+            connection.commit()
+        except:
+            return "something went wrong during setting up preferences"
+
+
+    if language:
+        set_in_database("preferences", "user_id", user_id, "language", language)
+
+    if darkmode:
+        set_in_database("preferences", "user_id", user_id, "darkmode", darkmode)
+
+    if high_contrast:
+        set_in_database("preferences", "user_id", user_id, "high_contrast", high_contrast)
+
+    return "preferences changed successfully"
+
+
+
 @app.post("/add_favourite")
 def add_favourite():
     name = request.args.get("name")
@@ -413,7 +448,7 @@ def add_favourite():
         cursor.execute("""
         INSERT INTO public.favourites(
         id, user_id, dish_id)
-        VALUES (gen_random_uuid(), %s, %s)
+        VALUES (gen_random_uuid(), %s, %s);
         """, (user_id, dish_id))
         connection.commit()
     except:
