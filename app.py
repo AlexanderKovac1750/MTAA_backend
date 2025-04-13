@@ -119,7 +119,7 @@ def init_DB():
         CREATE TABLE IF NOT EXISTS public."order"
         (
             id uuid,
-            "user" uuid,
+            user_id uuid,
             "timestamp" timestamp with time zone,
             comment text,
             price money,
@@ -343,7 +343,7 @@ def remove_user():
     if not login(name, password):
         return "invalid password"
 
-    order_id = get_from_database("id", "order", "user", name)
+    order_id = get_from_database("id", "order", "user_id", user_id)
     if order_id:
         return "unable to delete user during order fulfilment"
 
@@ -412,8 +412,6 @@ def change_preferences():
 
     return "preferences changed successfully"
 
-
-
 @app.post("/add_favourite")
 def add_favourite():
     name = request.args.get("name")
@@ -426,7 +424,7 @@ def add_favourite():
  
     if not find_in_database("user", "name", name):
         return "invalid user"
- 
+
     user_id = find_in_database("user", "name", name)
  
     cursor.execute("""
@@ -495,6 +493,39 @@ def remove_favourite():
     fav_free = get_from_database("favourite_free", "user", "name", name)
     set_in_database("user", "id", user_id, "favourite_free", fav_free+1)
     return "removed favourite successfully"
+
+
+@app.delete("/cancel_reservation")
+def cancel_reservation():
+    name = request.args.get("name")
+
+    user_id = find_in_database("user", "name", name)
+    if not user_id:
+        return "invalid user"
+
+    order_id = get_from_database("id", "order", "user_id", user_id)
+    print(user_id, ":", order_id)
+
+    if not order_id:
+        return "the order does not exist"
+
+    try:
+        cursor.execute("""
+        DELETE FROM reservation
+        WHERE user_id = %s and order_id = %s; """, (user_id, order_id))
+        connection.commit()
+    except:
+        return "something went wrong during reservation cancel"
+
+    try:
+        cursor.execute("""
+        DELETE FROM public."order"
+        WHERE user_id = %s and id = %s; """, (user_id, order_id))
+        connection.commit()
+    except:
+        return "something went wrong during order cancel"
+
+    return "reservation cancelled successfully"
 
 
 def add_discount_option(effectivness, cost):
@@ -708,6 +739,8 @@ def add_order(user_id, items, comment, discount):
     connection.commit()
     print(ids)
     return order_id
+
+
 #------------
 init_DB()
 clear_DB()
