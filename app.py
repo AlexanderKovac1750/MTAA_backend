@@ -8,9 +8,9 @@ app = Flask(__name__)
 
 connection=psycopg2.connect(
     host="localhost",
-    database="test1",
+    database="MTAA",
     user="postgres",
-    password="AkoBkoDko1666"
+    password="123"
     )
 cursor = connection.cursor()
 
@@ -119,7 +119,7 @@ def init_DB():
         CREATE TABLE IF NOT EXISTS public."order"
         (
             id uuid,
-            user_id uuid,
+            "user" uuid,
             "timestamp" timestamp with time zone,
             comment text,
             price money,
@@ -343,25 +343,25 @@ def remove_user():
     if not login(name, password):
         return "invalid password"
 
-    order_id = get_from_database("id", "order", "user_id", user_id)
+    order_id = get_from_database("id", "order", "user", user_id)
     if order_id:
         return "unable to delete user during order fulfilment"
 
-    if get_from_database("id", "favourites", "user_id", user_id):
+    if get_from_database("id", "favourites", "user", user_id):
         try:
             cursor.execute("""
             DELETE FROM favourites
-            WHERE user_id = %s; 
+            WHERE "user" = %s; 
             """, (user_id,))
             connection.commit()
         except:
             return "something went wrong while deleting favourites associated with user"
 
-    if get_from_database("id", "preferences", "user_id", user_id):
+    if get_from_database("id", "preferences", "user", user_id):
         try:
             cursor.execute("""
             DELETE FROM preferences
-            WHERE user_id = %s; 
+            WHERE "user" = %s; 
             """, (user_id,))
             connection.commit()
         except:
@@ -503,7 +503,15 @@ def cancel_reservation():
     if not user_id:
         return "invalid user"
 
-    order_id = get_from_database("id", "order", "user_id", user_id)
+    #order_id = get_from_database("id", "order", "user", user_id)
+    cursor.execute("""
+        SELECT order_id
+        FROM public."order" AS ord
+        JOIN public.reservation AS res
+        ON res.order_id = ord.id
+        WHERE ord.user = %s;
+        """,(user_id,))
+    order_id=cursor.fetchone()
     print(user_id, ":", order_id)
 
     if not order_id:
@@ -512,7 +520,7 @@ def cancel_reservation():
     try:
         cursor.execute("""
         DELETE FROM reservation
-        WHERE user_id = %s and order_id = %s; """, (user_id, order_id))
+        WHERE order_id = %s; """, (order_id))
         connection.commit()
     except:
         return "something went wrong during reservation cancel"
@@ -520,10 +528,10 @@ def cancel_reservation():
     try:
         cursor.execute("""
         DELETE FROM public."order"
-        WHERE user_id = %s and id = %s; """, (user_id, order_id))
+        WHERE id = %s; """, (order_id))
         connection.commit()
     except:
-        return "something went wrong during order cancel"
+        return "reservation cancelled, no order associated"
 
     return "reservation cancelled successfully"
 
@@ -773,7 +781,7 @@ def try_to_login():
     if(login(name,password)):
         return "correct password",200
     else:
-        return "wrong password",401
+        return "wrong password or username",401
 
 @app.get("/register")
 def try_to_register():
@@ -864,7 +872,140 @@ def delivery():
         return order_id[0]
 
     #add delivery
+    cursor.execute("""
+        INSERT INTO public.delivery(
+        id, order_id, postal_code,
+        street, house_number, delivered)
+        VALUES (gen_random_uuid(), %s, %s,
+        %s, %s, false);
+        """, (order_id, address[0],address[1],address[2]))
+    connection.commit()
     return "delivery order successful"
+
+from datetime import datetime, timedelta
+@app.post("/reservation")
+def make_reservation():
+    
+    name = request.args.get('name')
+    user_id=find_in_database("user","name",name)
+    if(user_id == None):
+        return "invalid user"
+
+    try:
+        data=json.loads(request.data)
+    except:
+        return "wrong format"
+
+    if(True):
+        dtime=[0,0,0]
+        people=int(data["people"])
+        json_dtime=data["datetime"]
+        dtime[0]=datetime.strptime(str(json_dtime["date"]),"%d.%m.%Y")
+        dtime[1]=datetime.strptime(str(json_dtime["from"]),"%H:%M").time()
+        dtime[2]=datetime.strptime(str(json_dtime["until"]),"%H:%M").time()
+        timestring=str(dtime[0].date())+' '+str(dtime[1])
+        from_dtime=datetime.strptime(timestring,"%Y-%m-%d %H:%M:%S")
+    else:
+        return "wrong time fromat"
+
+    if(dtime[1]>dtime[2]):
+        return "departure needs to happen after arrival"
+    valid_frod_dtime=datetime.now() + timedelta(hours=1)
+    if(from_dtime<valid_frod_dtime):
+        return f"""reservation can be at earliest
+    {valid_frod_dtime.replace(second=0, microsecond=0)}"""
+        
+
+    try:
+        discount=data["discount used"]
+    except:
+        discount=None
+
+    try:
+        comment=data["comment"]
+    except:
+        comment=""
+
+    food_ordered = True
+    try:
+        json_items=data["items"]
+    except:
+        food_ordered = False
+
+    #get order items
+    order_id=None
+    if(food_ordered):
+        try:
+            items=[0]*len(json_items)
+            for i in range(len(json_items)):
+                items[i]=[0,0,0]
+                
+                items[i][0]=find_in_database("dish","title",json_items[i]["name"])
+                if(items[i][0]==None):
+                    return f'nonexistant food: {json_items[i]["name"]}'
+
+                items[i][1]=json_items[i]["size"]
+                if(items[i][1]=="small"):
+                    items[i][1]=1
+                elif(items[i][1]=="medium"):
+                    items[i][1]=2
+                elif(items[i][1]=="large"):
+                    items[i][1]=3
+                else:
+                    return f"invalid portion size: {items[i][1]}"
+
+                
+                items[i][2]=int(json_items[i]["count"])
+                if(items[i][2]<1):
+                    return f'wrong food count {json_items[i]["name"]}:{json_items[i]["count"]}'
+        except:
+            return "invalid food item format"
+
+        order_id=add_order(user_id, items, comment, discount)
+        if(order_id==None):
+            return "order failed"
+
+        if(order_id.__class__ == list):
+            return f"nonexistant food portion size {order_id}"
+
+        if(order_id.__class__ == tuple):
+            return order_id[0]
+    else:
+        cursor.execute("""
+            INSERT INTO public."order"(
+            id, "user", "timestamp", comment,
+            price, discount_used, items_start, items_end)
+            VALUES (gen_random_uuid(), %s, NOW(), %s,
+            0.00, NULL, NULL, NULL) RETURNING id;
+            """, (user_id, comment),)
+        order_id=cursor.fetchone()[0]
+        connection.commit()
+
+    cursor.execute("""
+        UPDATE public."order"
+        SET price = price + '$1.50'
+        WHERE id = %s;
+        """, (order_id,))
+    connection.commit()
+        
+
+    #add reservation
+    cursor.execute("""
+        INSERT INTO public.reservation(
+        id, order_id, date, "from",
+        until, people, "table", "QR code")
+        VALUES (gen_random_uuid(), %s, %s, %s,
+        %s, %s, NULL, NULL);
+        """, (order_id, dtime[0], dtime[1], dtime[2], people))
+    connection.commit()
+    return "reservation order successful"
+
+@app.get("/discounts")
+def available_discounts():
+     cursor.execute("""
+          SELECT * FROM discounts;
+          """)
+     return cursor.fetchall()
 
 #---------
 order1={
