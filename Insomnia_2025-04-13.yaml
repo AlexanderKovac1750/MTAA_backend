@@ -1,0 +1,1019 @@
+type: collection.insomnia.rest/5.0
+name: MTAA Quick Meal
+meta:
+  id: wrk_4e2761dfc4164c2b928474e26c8921c4
+  created: 1744386086194
+  modified: 1744386833950
+collection:
+  - name: change_pasword
+    meta:
+      id: fld_d506af28a3c347e4b31e83efb4f15cc7
+      created: 1744385504881
+      modified: 1744385504881
+      sortKey: -1744385504881
+    children:
+      - url: http://127.0.0.1:5000/change_password
+        name: "successful "
+        meta:
+          id: req_85ea52f25ac84ec2b8fb8b870c6d1341
+          created: 1744381274037
+          modified: 1744388404796
+          isPrivate: false
+          sortKey: -1744385510177
+        method: PUT
+        parameters:
+          - name: name
+            value: Peter
+            disabled: false
+            id: pair_0219a3e415104b1897ec586624c58b85
+          - name: old_password
+            value: "123"
+            disabled: false
+            id: pair_15990bd6d9854351a9a3e2efda51ddcc
+          - name: new_password
+            value: "321"
+            disabled: false
+            id: pair_1c728b6500b7496486b78f8320590edc
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/change_password
+        name: wrong user
+        meta:
+          id: req_71c1922e63dc4a0192a3798632cd0c73
+          created: 1744385480816
+          modified: 1744387718500
+          isPrivate: false
+          sortKey: -1744385510277
+        method: PUT
+        parameters:
+          - id: pair_3d35f246cecf4fa0af04b2fdc9210034
+            name: name
+            value: peter
+            disabled: false
+          - id: pair_1b4ae42886b54b40a5dbad9fc740c606
+            name: old_password
+            value: "123"
+            disabled: false
+          - id: pair_0f28752bd0ae4bde9c20bcb0e1e97380
+            name: new_password
+            value: "123"
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/change_password
+        name: wrong old password
+        meta:
+          id: req_5f60f6cb2aa743cebf71946f9e9eadfb
+          created: 1744385562006
+          modified: 1744387361983
+          isPrivate: false
+          sortKey: -1744385510377
+        method: PUT
+        parameters:
+          - id: pair_cddfe2b245164693be9461134df4fd3f
+            name: name
+            value: Peter
+            disabled: false
+          - id: pair_894f8e8d170e457e91ac6a0a71723fe1
+            name: old_password
+            value: "56"
+            disabled: false
+          - id: pair_361d50f24bd9498e88c944e792d0a84b
+            name: new_password
+            value: "4567"
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - name: login
+    meta:
+      id: fld_8a35994fe65745a9b866b8151bd9dd7b
+      created: 1744387200163
+      modified: 1744387200163
+      sortKey: -1744387200163
+    children:
+      - url: http://127.0.0.1:5000/login
+        name: login_incorrect
+        meta:
+          id: req_32bafb4040b0416f90274aa8b44f1236
+          created: 1744041749802
+          modified: 1744387239653
+          isPrivate: false
+          sortKey: -1744387239589
+        method: GET
+        parameters:
+          - name: name
+            value: Peter
+            disabled: false
+            id: pair_08440cf07678499993e5b59141d61e24
+          - name: password
+            value: pass
+            disabled: false
+            id: pair_ab343292077041b9b2b7f2dcc994d86a
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/login
+        name: login_correct
+        meta:
+          id: req_515a7191f32e4a138f2ebf3226948964
+          created: 1744297346524
+          modified: 1744387246500
+          isPrivate: false
+          sortKey: -1744387239689
+        method: GET
+        parameters:
+          - name: name
+            value: Peter
+            disabled: false
+            id: pair_08440cf07678499993e5b59141d61e24
+          - name: password
+            value: "123"
+            disabled: false
+            id: pair_ab343292077041b9b2b7f2dcc994d86a
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - name: register
+    meta:
+      id: fld_8400fd324a3341b6a6071d22c058ded2
+      created: 1744387264855
+      modified: 1744387264855
+      sortKey: -1744387264855
+    children:
+      - url: http://127.0.0.1:5000/register
+        name: register_incorrect
+        meta:
+          id: req_3f5d27c965324a62b738211442d54243
+          created: 1744298252089
+          modified: 1744387270326
+          isPrivate: false
+          sortKey: -1744387270211
+        method: GET
+        parameters:
+          - name: name
+            value: Peter
+            disabled: false
+            id: pair_08440cf07678499993e5b59141d61e24
+          - name: password
+            value: "123"
+            disabled: false
+            id: pair_ab343292077041b9b2b7f2dcc994d86a
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/register
+        name: register_correct
+        meta:
+          id: req_33fd981bf8c945a996f4b521dd5bc0d2
+          created: 1744298262700
+          modified: 1744387283810
+          isPrivate: false
+          sortKey: -1744387270311
+        method: GET
+        parameters:
+          - name: name
+            value: Jaroslav
+            disabled: false
+            id: pair_08440cf07678499993e5b59141d61e24
+          - name: password
+            value: "123"
+            disabled: false
+            id: pair_ab343292077041b9b2b7f2dcc994d86a
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - name: favourite dish
+    meta:
+      id: fld_fa3ed73da40140c28f533c73e52507dc
+      created: 1744387994924
+      modified: 1744559081697
+      sortKey: -1744387994924
+    children:
+      - url: http://127.0.0.1:5000/add_favourite
+        name: successful
+        meta:
+          id: req_e86e401bde7f4fae9df4b5fa51fca23c
+          created: 1744388004236
+          modified: 1744523726884
+          isPrivate: false
+          sortKey: -1744388014056
+        method: POST
+        parameters:
+          - id: pair_dc4b361b0fb44c46a05c0223465dd784
+            name: name
+            value: Peter
+            disabled: false
+          - id: pair_9179e0812f734b4b84ea4474ccb427e1
+            name: dish_name
+            value: vodka
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/add_favourite
+        name: insufficient free spaces
+        meta:
+          id: req_515433aea4f142eab6a9e402326e4a8f
+          created: 1744388052680
+          modified: 1744533786188
+          isPrivate: false
+          sortKey: -1744388052680
+        method: POST
+        parameters:
+          - id: pair_8173bedc8bfa4f1dbc9ad9e5813c5842
+            name: name
+            value: Peter
+            disabled: false
+          - id: pair_680d1d45ed4440b8935a87fd78d575af
+            name: dish_name
+            value: zemiaky
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/add_favourite
+        name: duplicated
+        meta:
+          id: req_0aa9628ca82147e0aa79f659e7096e3d
+          created: 1744388110480
+          modified: 1744523908755
+          isPrivate: false
+          sortKey: -1744388110480
+        method: POST
+        parameters:
+          - id: pair_7847c5f64e1c466e84e2f911abe0fb71
+            name: name
+            value: Peter
+            disabled: false
+          - id: pair_32a4e97d682649da9499eafc9cb26c91
+            name: dish_name
+            value: vodka
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/remove_favourite
+        name: delete
+        meta:
+          id: req_c8ae041dd4434c4d98ba0fb492aca4b8
+          created: 1744388222959
+          modified: 1744535496085
+          isPrivate: false
+          sortKey: -1744388013856
+        method: DELETE
+        parameters:
+          - id: pair_5b1fc1a5cd624e57824b77eaa68407c9
+            name: name
+            value: Peter
+            disabled: false
+          - id: pair_d5923ad72d1a487b940d300b8c9e6b36
+            name: dish_name
+            value: vodka
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/add_favourite
+        name: wrong dish
+        meta:
+          id: req_ae5119043c2f4835ac58ca1a28b886fa
+          created: 1744392808316
+          modified: 1744523749373
+          isPrivate: false
+          sortKey: -1744392808316
+        method: POST
+        parameters:
+          - id: pair_29fc2fa1857a4c2badf2612cc5503464
+            name: name
+            value: Peter
+            disabled: false
+          - id: pair_dce4bdf6c91b48b2a6f41b90d7cdc2a8
+            name: dish_name
+            value: ryba
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/add_favourite
+        name: wrong user
+        meta:
+          id: req_baf41cbecb9d45678b92bb92b96946c5
+          created: 1744392824910
+          modified: 1744523722327
+          isPrivate: false
+          sortKey: -1744392824910
+        method: POST
+        parameters:
+          - id: pair_ae3ef4fb82324fdd9ce5b16565ec4e36
+            name: name
+            value: Sam
+            disabled: false
+          - id: pair_f4383d9245114745b02ce772d7dfb0c0
+            name: dish_name
+            value: vodka
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/remove_favourite
+        name: dish not in favourites
+        meta:
+          id: req_8f1fe1985b9d42738708d9d1de708852
+          created: 1744535438878
+          modified: 1744535632634
+          isPrivate: false
+          sortKey: -1744388013931
+        method: DELETE
+        parameters:
+          - id: pair_499b5aab2c74489d868538f47cff1d19
+            name: name
+            value: Peter
+            disabled: false
+          - id: pair_e6951dbb4ef047b885a3f0798f9e85e6
+            name: dish_name
+            value: zemiaky
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/remove_favourite
+        name: wrong dish
+        meta:
+          id: req_b080b52a8ebd4856923be50629ff3a1a
+          created: 1744535447991
+          modified: 1744535612364
+          isPrivate: false
+          sortKey: -1744388013906
+        method: DELETE
+        parameters:
+          - id: pair_fac2cbfb594b487ca4ac7a90a60655e7
+            name: name
+            value: Peter
+            disabled: false
+          - id: pair_6abe885cf6094a5585061843c6e3a929
+            name: dish_name
+            value: ryba
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/remove_favourite
+        name: wrong user
+        meta:
+          id: req_89419f034efd4a91907946f00f9c2977
+          created: 1744535463070
+          modified: 1744535672959
+          isPrivate: false
+          sortKey: -1744388013956
+        method: DELETE
+        parameters:
+          - id: pair_2f9e4d58b9ae4e8986e90c333050bdfc
+            name: name
+            value: Sam
+            disabled: false
+          - id: pair_9728f055017340d48063fe8aa8382319
+            name: dish_name
+            value: zemiaky
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - name: preferences
+    meta:
+      id: fld_43fb6577993c41688671a1ecbf7533b5
+      created: 1744535723200
+      modified: 1744535775593
+      sortKey: -1744535723200
+    children:
+      - url: http://127.0.0.1:5000/change_preferences
+        name: "change language "
+        meta:
+          id: req_e958cb5c9b0546c59d4185ab8247ca53
+          created: 1744535762192
+          modified: 1744554842415
+          isPrivate: false
+          sortKey: -1744535762192
+        method: POST
+        parameters:
+          - id: pair_a1e11ec914a34fffb9e9f2e6d2bb2f46
+            name: name
+            value: Peter
+            disabled: false
+          - id: pair_130b5d4c528243da81d1330f44775591
+            name: language
+            value: SK
+            disabled: false
+          - id: pair_0d31fc7bbcd54baa9e9f861bf83f25eb
+            name: darkmode
+            disabled: false
+          - id: pair_292c4946e2ae46d19b2d4d7f54e95387
+            name: high_contrast
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/change_preferences
+        name: turn dark mode on
+        meta:
+          id: req_0b3eec4abcee4c6c8b007626a3f8cb83
+          created: 1744549243828
+          modified: 1744555446763
+          isPrivate: false
+          sortKey: -1744549243828
+        method: POST
+        parameters:
+          - id: pair_85d28d488f94439dbde9509fbc5d3277
+            name: name
+            value: Peter
+            disabled: false
+          - id: pair_25a99bba4d054054810de2e0e9d35236
+            name: language
+            disabled: false
+          - id: pair_3f6e353dbd44489592ef55c22a2fafb4
+            name: darkmode
+            value: "True"
+            disabled: false
+          - id: pair_6fcabe732ac74f988f5de5f80f9b290b
+            name: high_contrast
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/change_preferences
+        name: turn high contrast on
+        meta:
+          id: req_7c1a6ee3b3714374a382c5372887b3ed
+          created: 1744549509057
+          modified: 1744555404529
+          isPrivate: false
+          sortKey: -1744549509057
+        method: POST
+        parameters:
+          - id: pair_c8ddb7f41e574a0d8c055a06d234e9de
+            name: name
+            value: Peter
+            disabled: false
+          - id: pair_f5c532a283b84a63a2ee264f910a018b
+            name: language
+            disabled: false
+          - id: pair_a2e4a0a6a0b740abb45c31747c9b98c6
+            name: darkmode
+            disabled: false
+          - id: pair_c47d5575d5e647779d2dd7117fc38c1d
+            name: high_contrast
+            value: "True"
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/change_preferences
+        name: turn high contrast off
+        meta:
+          id: req_60d6817782fa407ba2a2579a6d703f66
+          created: 1744555410952
+          modified: 1744555419236
+          isPrivate: false
+          sortKey: -1744549376442.5
+        method: POST
+        parameters:
+          - id: pair_c8ddb7f41e574a0d8c055a06d234e9de
+            name: name
+            value: Peter
+            disabled: false
+          - id: pair_f5c532a283b84a63a2ee264f910a018b
+            name: language
+            disabled: false
+          - id: pair_a2e4a0a6a0b740abb45c31747c9b98c6
+            name: darkmode
+            disabled: false
+          - id: pair_c47d5575d5e647779d2dd7117fc38c1d
+            name: high_contrast
+            value: "False"
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/change_preferences
+        name: turn dark mode off
+        meta:
+          id: req_8b78247776834ff9a4077871792802cb
+          created: 1744555453324
+          modified: 1744555540099
+          isPrivate: false
+          sortKey: -1744542627266
+        method: POST
+        parameters:
+          - id: pair_85d28d488f94439dbde9509fbc5d3277
+            name: name
+            value: Peter
+            disabled: false
+          - id: pair_25a99bba4d054054810de2e0e9d35236
+            name: language
+            disabled: false
+          - id: pair_3f6e353dbd44489592ef55c22a2fafb4
+            name: darkmode
+            value: "False"
+            disabled: false
+          - id: pair_6fcabe732ac74f988f5de5f80f9b290b
+            name: high_contrast
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/change_preferences
+        name: change all settings
+        meta:
+          id: req_41cbd400fe4940db8024424da8511b43
+          created: 1744555459440
+          modified: 1744555613384
+          isPrivate: false
+          sortKey: -1744555459440
+        method: POST
+        parameters:
+          - id: pair_66fc884517ba4827af672a971a41234d
+            name: name
+            value: Peter
+            disabled: false
+          - id: pair_4642c0a4f0d84923b9b5e5b37a023401
+            name: language
+            value: RUS
+            disabled: false
+          - id: pair_007da56eb5fa46028ee297786abb7f38
+            name: darkmode
+            value: "False"
+            disabled: false
+          - id: pair_af801466100a4889826e21e9288c6b8d
+            name: high_contrast
+            value: "True"
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/change_preferences
+        name: apply standard preferences
+        meta:
+          id: req_118014409c8d450ab582e7bcb0328cac
+          created: 1744555477134
+          modified: 1744555643310
+          isPrivate: false
+          sortKey: -1744555477134
+        method: POST
+        parameters:
+          - id: pair_7080515a172a4b6b85bce7f2c42a5b59
+            name: name
+            value: Karol
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/change_preferences
+        name: wrong user
+        meta:
+          id: req_1ec97322e82140d1afe8cf5af1dd74af
+          created: 1744555670124
+          modified: 1744555689264
+          isPrivate: false
+          sortKey: -1744555670124
+        method: POST
+        parameters:
+          - id: pair_f26bcef07d9c48068c1b2e2773356c63
+            name: name
+            value: Sam
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - name: delete user
+    meta:
+      id: fld_6af895059ceb4741a4703e28ebcfb6eb
+      created: 1744535907690
+      modified: 1744535907690
+      sortKey: -1744535907690
+    children:
+      - url: http://127.0.0.1:5000/remove_user
+        name: successful
+        meta:
+          id: req_84ae4831521a48cdb0204e261cf8f5f0
+          created: 1744535912615
+          modified: 1744540603464
+          isPrivate: false
+          sortKey: -1744535917283
+        method: DELETE
+        parameters:
+          - id: pair_6bbb41eb93024c5ea7beeb5195e35f80
+            name: name
+            value: Peter
+            disabled: false
+          - id: pair_bfccb167cb054e608a7b14be0aa02c8a
+            name: password
+            value: "123"
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/remove_user
+        name: wrong password
+        meta:
+          id: req_a1c928f13faf4aa0a2ffb73428b611ad
+          created: 1744536009170
+          modified: 1744536068167
+          isPrivate: false
+          sortKey: -1744536009170
+        method: DELETE
+        parameters:
+          - id: pair_8e7652b7aea1418ba9ac213562d8c3ac
+            name: name
+            value: Peter
+            disabled: false
+          - id: pair_a1388e0bbe2d4fb9a4ffa7f3a954df78
+            name: password
+            value: help
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://127.0.0.1:5000/remove_user
+        name: wrong user
+        meta:
+          id: req_618565474bbd4f8997a0d1aab7a710cb
+          created: 1744536010704
+          modified: 1744538334229
+          isPrivate: false
+          sortKey: -1744536010704
+        method: DELETE
+        parameters:
+          - id: pair_ed021d67d7b14a4d9ef9dd26edb97760
+            name: name
+            value: Sam
+            disabled: false
+          - id: pair_a0dcabfa67b844ae8c5e268cef35a92b
+            name: password
+            value: "123"
+            disabled: false
+        headers:
+          - name: User-Agent
+            value: insomnia/11.0.2
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - url: http://127.0.0.1:5000/store
+    name: get stores
+    meta:
+      id: req_b47960a657a24279888c1790f6d2cbb2
+      created: 1741621480509
+      modified: 1744035609553
+      isPrivate: false
+      sortKey: -1741621480509
+    method: GET
+    headers:
+      - name: User-Agent
+        value: insomnia/10.3.1
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: http://127.0.0.1:5000/fav
+    name: del banana
+    meta:
+      id: req_f5350790f5f34e28ad7c30d40e5fa7bc
+      created: 1744043980524
+      modified: 1744044054028
+      isPrivate: false
+      sortKey: -1744043980524
+    method: DELETE
+    parameters:
+      - name: food
+        value: banana
+        disabled: false
+        id: pair_8190837d0f6a4c95b9938d6b955fa2c1
+    headers:
+      - name: User-Agent
+        value: insomnia/11.0.2
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: http://127.0.0.1:5000/fav
+    name: add banana
+    meta:
+      id: req_5f5db52797824553bc901c650cdf18c5
+      created: 1744043983238
+      modified: 1744044224750
+      isPrivate: false
+      sortKey: -1744043983238
+    method: POST
+    parameters:
+      - name: food
+        value: banana
+        disabled: false
+        id: pair_3ecd0e50c9194612ac34383bff204e66
+    headers:
+      - name: User-Agent
+        value: insomnia/11.0.2
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: http://127.0.0.1:5000/preferences
+    name: prefer darkmode
+    meta:
+      id: req_450fb0a82c324ace8c47141be5250581
+      created: 1744044417107
+      modified: 1744550329189
+      isPrivate: false
+      sortKey: -1744044417107
+    method: PUT
+    parameters:
+      - name: setting
+        value: darkmode
+        disabled: false
+        id: pair_769870840f7a496dbc18ba35a2da2210
+      - name: val
+        value: dark
+        disabled: false
+        id: pair_4977ed6a1dc94167a3e5f95674db8092
+      - id: pair_7d5577a45d94400f81ee08b56684a21f
+        name: lang
+        value: ENG
+        disabled: false
+      - id: pair_ad8fc30e5de540e69ee17d4e2ec64af8
+        name: contrast
+        value: "15"
+        disabled: false
+    headers:
+      - name: User-Agent
+        value: insomnia/11.0.2
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: http://127.0.0.1:5000/cancel_reservation
+    name: cancel reservation
+    meta:
+      id: req_9c5db8a741274ec7b87b2c4d6510d297
+      created: 1744556649165
+      modified: 1744566519179
+      isPrivate: false
+      sortKey: -1741621480409
+    method: DELETE
+    parameters:
+      - id: pair_4093ee090aa44196ad612c4b42913c5a
+        name: name
+        value: Peter
+        disabled: false
+    headers:
+      - name: User-Agent
+        value: insomnia/11.0.2
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+cookieJar:
+  name: Default Jar
+  meta:
+    id: jar_f2daaf71cd4e7d659bafd48190f57069e9cdd543
+    created: 1744386086203
+    modified: 1744386086203
+environments:
+  name: Base Environment
+  meta:
+    id: env_f2daaf71cd4e7d659bafd48190f57069e9cdd543
+    created: 1744386086199
+    modified: 1744386086199
+    isPrivate: false
