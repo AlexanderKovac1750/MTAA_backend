@@ -750,6 +750,15 @@ def add_order(user_id, items, comment, discount):
     print(ids)
     return order_id
 
+def bind_image_to_dish(image, dish):
+    f = open(image,"br")
+    dish_id = find_in_database("dish","title",dish)
+    if(dish_id==None):
+        print("dish not found during image binding")
+        return
+    set_in_database("dish","id",dish_id,"picture",f.read())
+    connection.commit()
+    #print(f.read())
 
 #------------
 init_DB()
@@ -772,6 +781,7 @@ print(add_dish_to_menu("vodka",(300,2.65),(540,3.79),None,
 print(add_dish_to_menu("zemiaky",(140,1.05),(240,1.79),(360,2.50),
                        "g","chutne",0.1,None))
 set_today_special("vodka")
+bind_image_to_dish("DB.png","vodka")
 
 
 
@@ -1005,10 +1015,42 @@ def make_reservation():
 
 @app.get("/discounts")
 def available_discounts():
-     cursor.execute("""
-          SELECT * FROM discounts;
-          """)
-     return cursor.fetchall()
+    cursor.execute("""
+        SELECT * FROM discounts;
+        """)
+    return cursor.fetchall()
+
+from flask import send_file
+from flask import Response
+from io import BytesIO
+@app.get("/dish/picture")
+def get_dish_pic():
+    dish_name = request.args.get('dish')
+    pic=get_from_database("picture", "dish","title",dish_name)
+    if(pic==None):
+        return "dish pic not found", 404
+    pic=pic.tobytes()
+    
+    return send_file(BytesIO(pic),
+                     mimetype='image/jpg',
+                     as_attachment=False,
+                     download_name='image.jpg')
+    
+@app.post("/dish/picture")
+def insert_dish_pic():
+    dish_name = request.args.get('dish')
+
+    if 'image' not in request.files:
+        return ({'error': 'No image file part in the request'}), 400
+
+    file = request.files['image']
+
+    if file.filename == '':
+        return ({'error': 'No selected file'}), 400
+
+    byte1 = file.read()
+    print(byte1)
+    return "yay"
 
 #---------
 order1={
