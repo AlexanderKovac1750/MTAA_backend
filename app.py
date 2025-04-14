@@ -503,15 +503,7 @@ def cancel_reservation():
     if not user_id:
         return "invalid user"
 
-    #order_id = get_from_database("id", "order", "user", user_id)
-    cursor.execute("""
-        SELECT order_id
-        FROM public."order" AS ord
-        JOIN public.reservation AS res
-        ON res.order_id = ord.id
-        WHERE ord.user = %s;
-        """,(user_id,))
-    order_id=cursor.fetchone()
+    order_id = get_from_database('"id"', '"order"', '"user"', user_id)
     print(user_id, ":", order_id)
 
     if not order_id:
@@ -520,7 +512,7 @@ def cancel_reservation():
     try:
         cursor.execute("""
         DELETE FROM reservation
-        WHERE order_id = %s; """, (order_id))
+        WHERE order_id = %s; """, (order_id,))
         connection.commit()
     except:
         return "something went wrong during reservation cancel"
@@ -528,7 +520,7 @@ def cancel_reservation():
     try:
         cursor.execute("""
         DELETE FROM public."order"
-        WHERE id = %s; """, (order_id))
+        WHERE id = %s; """, (order_id,))
         connection.commit()
     except:
         return "reservation cancelled, but no order associated"
@@ -760,6 +752,14 @@ def bind_image_to_dish(image, dish):
     connection.commit()
     #print(f.read())
 
+def bind_data_to_dish(data, dish):
+    dish_id = find_in_database("dish","title",dish)
+    if(dish_id==None):
+        print("dish not found during image binding")
+        return
+    set_in_database("dish","id",dish_id,"picture",data)
+    connection.commit()
+
 #------------
 init_DB()
 clear_DB()
@@ -786,7 +786,7 @@ bind_image_to_dish("DB.png","vodka")
 
 
 #----------
-@app.get("/login")
+@app.post("/login")
 def try_to_login():
     name = request.args.get('name')
     password = request.args.get('password')
@@ -795,7 +795,7 @@ def try_to_login():
     else:
         return "wrong password or username",401
 
-@app.get("/register")
+@app.post("/register")
 def try_to_register():
     name = request.args.get('name')
     password = request.args.get('password')
@@ -1040,16 +1040,13 @@ def get_dish_pic():
 def insert_dish_pic():
     dish_name = request.args.get('dish')
 
-    if 'image' not in request.files:
-        return ({'error': 'No image file part in the request'}), 400
-
+    
+    data=request.get_data()
+    #print(data)
     file = request.files['image']
-
-    if file.filename == '':
-        return ({'error': 'No selected file'}), 400
-
-    byte1 = file.read()
-    print(byte1)
+    bind_data_to_dish(file.read(),dish_name)
+    #byte1 = file.read()
+    #print(byte1)
     return "yay"
 
 #---------
