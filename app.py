@@ -768,7 +768,8 @@ print(add_dish_to_menu("vodka",(300,2.65),(540,3.79),None,
 print(add_dish_to_menu("zemiaky",(140,1.05),(240,1.79),(360,2.50),
                        "g","chutne",0.1,None))
 set_today_special("vodka")
-bind_image_to_dish("DB.png","vodka")
+bind_image_to_dish("DB.png","zemiaky")
+bind_image_to_dish("meme.jpg","vodka")
 
 
 
@@ -777,6 +778,7 @@ bind_image_to_dish("DB.png","vodka")
 def try_to_login():
     name = request.args.get('name')
     password = request.args.get('password')
+    
     if(login(name,password)):
         return "correct password",200
     else:
@@ -1046,4 +1048,13 @@ order1={
 print(find_in_database("dish","title","vodka"))
 print(json.dumps(order1))
 
-app.run()
+#app.run(host='147.175.161.105',port=5000)
+#app.run(host='192.168.0.101',port=5000)
+str_server_address = input("""
+\nchoose server address default is 127.0.0.1:5000\n
+___address___: port\n""")
+if(str_server_address==''):
+    str_server_address="127.0.0.1:5000"
+str_address, port = str_server_address.split(":")
+port=int(port)
+app.run(host=str_address,port=port)
