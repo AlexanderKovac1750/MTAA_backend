@@ -259,6 +259,7 @@ def get_user_token(name):
         RETURNING token;
         """,(name,))
     res = cursor.fetchone()
+    connection.commit()
     if(res==None):
         return None
     return res[0]
@@ -272,8 +273,17 @@ def get_id(token):
     return cursor.fetchone()
 
 def invalidate_user_token(token):
-    #set this one to null
-    return
+    cursor.execute("""
+        UPDATE public."user"
+        SET token = null
+        WHERE name= %s
+        RETURNING token;
+        """,(name,))
+    res = cursor.fetchone()
+    connection.commit()
+    if(res==None):
+        return None
+    return res[0]
 
 def register_user(name, password):
     name=str(name)
@@ -807,21 +817,35 @@ def try_to_login():
         return {'message':"correct password",
                 'token':get_user_token(name)},200
     else:
-        return "wrong password or username",401
+        return {'message':"wrong password or username"},401
 
 @app.post("/register")
 def try_to_register():
     name = request.args.get('name')
     password = request.args.get('password')
     res = register_user(name,password)
+    
     if(res==None):
         res = register_user(name,password)
     if(res == True):
-        return "registration successful", 201
+        return {'message':"registration successful",
+                'token': get_user_token(name)}, 201
     elif(res==None):
-        return "something went wrong, try again",500
+        return {'message':"something went wrong, try again"},500
     else:
-        return "username already taken",409
+        return {'message':"username already taken"},409
+
+@app.post("/logout")
+def try_to_logout():
+    name = request.args.get('name')
+    password = request.args.get('password')
+    
+    if(login(name,password)):
+        return {'message':"logged out"},200
+    else:
+        return {'message':"wrong password or username"},401
+
+
 
 @app.post("/delivery")
 def delivery():
