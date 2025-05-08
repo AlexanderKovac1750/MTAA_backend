@@ -251,6 +251,30 @@ def clear_DB():
     print("cleared DB")
     return
 
+def get_user_token(name):
+    cursor.execute("""
+        UPDATE public."user"
+        SET token = gen_random_uuid()
+        WHERE name= %s
+        RETURNING token;
+        """,(name,))
+    res = cursor.fetchone()
+    if(res==None):
+        return None
+    return res[0]
+
+def get_id(token):
+    cursor.execute("""
+        SELECT id
+        FROM public."user"
+        WHERE token = %s ;
+        """,(token,))
+    return cursor.fetchone()
+
+def invalidate_user_token(token):
+    #set this one to null
+    return
+
 def register_user(name, password):
     name=str(name)
     password=str(password)
@@ -780,7 +804,8 @@ def try_to_login():
     password = request.args.get('password')
     
     if(login(name,password)):
-        return "correct password",200
+        return {'message':"correct password",
+                'token':get_user_token(name)},200
     else:
         return "wrong password or username",401
 
