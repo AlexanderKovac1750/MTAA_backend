@@ -1136,7 +1136,7 @@ def get_filtered_dishes():
                 description, discount_base, 
                 ROW_NUMBER() OVER(ORDER BY popularity DESC) AS ind
                 FROM public.dish
-            WHERE title SIMILAR TO %s) 
+            WHERE title ~* %s) 
 
             WHERE ind> %s AND ind<= %s
             ORDER BY ind asc;
@@ -1155,7 +1155,7 @@ def get_filtered_dishes():
                 description, discount_base, 
                 ROW_NUMBER() OVER(ORDER BY popularity DESC) AS ind
                 FROM public.dish
-            WHERE title SIMILAR TO %s AND category = %s) 
+            WHERE title ~* %s AND category = %s) 
 
             WHERE ind> %s AND ind<= %s
             ORDER BY ind asc;
