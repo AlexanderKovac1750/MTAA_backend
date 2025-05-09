@@ -1197,9 +1197,9 @@ def get_filtered_dishes():
 
     formatted_dishes=[
         {'id':dish[0], 'title':dish[1], 'category':dish[2], 
-            'small_portion':dish[3], 'medium_portion':dish[4],
-            'large_portion':dish[5],'small_price':dish[6],
-            'medium_price':dish[7], 'large_price':dish[8], 'portion_unit':dish[9],
+            'small_size':dish[3], 'medium_size':dish[4],
+            'large_size':dish[5],'small_price':dish[6],
+            'medium_price':dish[7], 'large_price':dish[8], 'unit':dish[9],
             'description':dish[10], 'discount_base':dish[11]}
         for dish in dishes
     ]
