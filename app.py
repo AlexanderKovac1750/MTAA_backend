@@ -388,6 +388,29 @@ def change_password():
     else:
         return "incorrect old password"
 
+@app.get("/account_info")	#user + preferences
+def account_info():
+    token = request.args.get('token')
+    if (token == None):
+        return {'message': "missing token"}, 401
+
+    user_id = get_id(token)
+    if (user_id == None):
+        return {'message': "no session with this user"}, 401
+
+    cursor.execute("""
+            SELECT discount_points, loyalty_points,
+            level, favourite_capacity, favourite_free, pref_id,
+             language, darkmode, high_contrast
+            FROM public."user" AS u JOIN public.preferences AS p
+            ON u.id = p.user_id
+            WHERE u.user_id = %s
+            """,(user_id,))
+    result = cursor.fetchone()
+    return row, 200 if result else ({"message": "User not found"}, 404)
+
+
+
 @app.delete("/remove_user")
 def remove_user():
     name = request.args.get("name")
@@ -582,7 +605,35 @@ def get_favourites():
 
     return {'message':"""returning favourite dishes""",
             'dishes':formatted_dishes},200
-    
+
+@app.get("/reservation")	#user + reservation
+def account_info():
+    token = request.args.get('token')
+    if (token == None):
+        return {'message': "missing token"}, 401
+
+    user_id = get_id(token)
+    if (user_id == None):
+        return {'message': "no session with this user"}, 401
+
+    order = get_from_database("id", "order", "user", user_id)
+    if (order == None):
+        return {'message': "invalid order"}, 401
+
+    reservation = get_from_database("id", "reservation", "order_id", order)
+    if (reservation == None):
+        return {'message': "invalid reservation"}, 401
+
+    cursor.execute("""
+            SELECT r.id, date, "from", until, people, "table", "QR code"
+            FROM public."user" AS u JOIN public."order" AS o
+            ON u.id = o."user"
+            JOIN public.reservation AS r
+            ON o.id = r.order_id
+            WHERE u.user_id = %s
+            """,(user_id,))
+    result = cursor.fetchall()
+    return result, 200
 
 @app.delete("/cancel_reservation")
 def cancel_reservation():
