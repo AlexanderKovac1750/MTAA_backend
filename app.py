@@ -399,16 +399,20 @@ def account_info():
         return {'message': "no session with this user"}, 401
 
     cursor.execute("""
-            SELECT discount_points, loyalty_points,
-            level, favourite_capacity, favourite_free, pref_id,
+            SELECT "name", discount_points, loyalty_points,
+            level, favourite_capacity, favourite_free,
              language, darkmode, high_contrast
-            FROM public."user" AS u JOIN public.preferences AS p
+            FROM public."user" AS u LEFT JOIN public.preferences AS p
             ON u.id = p.user_id
             WHERE u.id = %s
             """,(user_id,))
     result = cursor.fetchone()
     if result:
-        result, 200
+        return {'message':"success", 'account_info':{
+            'name':result[0], 'discount_points':result[1],
+            'loyalty_points': result[2], 'level':result[3],
+            'favourite_capacity':result[4]
+                                                     }}, 200
     else:
         return {"message": "User not found"}, 404
 
@@ -628,7 +632,7 @@ def account_reservations():
         return {'message': "no reservation"}, 404
 
     cursor.execute("""
-            SELECT r.id, date, "from", until, people, "table", "QR code"
+            SELECT r.id, date, "from", until, people, "table"
             FROM public."user" AS u JOIN public."order" AS o
             ON u.id = o."user"
             JOIN public.reservation AS r
@@ -636,7 +640,8 @@ def account_reservations():
             WHERE u.id = %s
             """,(user_id,))
     result = cursor.fetchall()
-    return result, 200
+    return {'message':"success",
+            'reservations':result}, 200
 
 @app.delete("/cancel_reservation")
 def cancel_reservation():
