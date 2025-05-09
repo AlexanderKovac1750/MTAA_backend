@@ -102,6 +102,7 @@ def init_DB():
         (
             id uuid,
             title text,
+            category text,
             small_portion integer,
             medium_portion integer,
             large_portion integer,
@@ -270,7 +271,10 @@ def get_id(token):
         FROM public."user"
         WHERE token = %s ;
         """,(token,))
-    return cursor.fetchone()
+    res = cursor.fetchone()
+    if(res==None):
+        return None
+    return res[0]
 
 def invalidate_user_token(token):
     cursor.execute("""
@@ -595,7 +599,7 @@ def add_discount_option(effectivness, cost):
         return False
     return True
 
-def add_dish_to_menu(title, small,medium,large,unit,description,disc_base,pic):
+def add_dish_to_menu(title,category, small,medium,large,unit,description,disc_base,pic):
     if(small==None):
         small=(None,None)
     if(medium==None):
@@ -605,15 +609,16 @@ def add_dish_to_menu(title, small,medium,large,unit,description,disc_base,pic):
     try:
         cursor.execute("""
             INSERT INTO public.dish(
-            id, title, 
+            id, title, category,
             small_portion, medium_portion, large_portion, 
             small_price, medium_price, large_price, portion_unit, 
             description, discount_base, picture)
-            VALUES (gen_random_uuid(), %s, 
+            VALUES (gen_random_uuid(), %s, %s,
             %s, %s, %s, 
             %s, %s, %s, %s,
             %s, %s, %s);
-            """,(title,small[0],medium[0],large[0],
+            """,(title,category,
+                 small[0],medium[0],large[0],
                  small[1],medium[1],large[1],unit,
                  description, disc_base, pic))
         connection.commit()
@@ -797,10 +802,13 @@ print(add_discount_option(0.10, 100))
 print(add_discount_option(0.15, 140))
 print(add_discount_option(0.20, 175))
 print("adding dishes")
-print(add_dish_to_menu("vodka",(300,2.65),(540,3.79),None,
+print(add_dish_to_menu("vodka","drink",(300,2.65),(540,3.79),None,
                        "ml","velmi dobra",0.2,None))
-print(add_dish_to_menu("zemiaky",(140,1.05),(240,1.79),(360,2.50),
+print(add_dish_to_menu("zemiaky","hlavne",(140,1.05),(240,1.79),(360,2.50),
                        "g","chutne",0.1,None))
+print(add_dish_to_menu("vyvar","polievka",(200,1.30),(300,1.69),None,
+                       "g","domaca",0.1,None))
+print("setting special")
 set_today_special("vodka")
 bind_image_to_dish("DB.png","zemiaky")
 bind_image_to_dish("meme.jpg","vodka")
@@ -1087,6 +1095,87 @@ def insert_dish_pic():
     #print(byte1)
     return "yay"
 
+@app.get("/dish")
+def get_filtered_dishes():
+    
+    token=request.args.get('token')
+    if(token==None):
+        return {'message':"connection error"},401
+    
+    user_id=get_id(token)
+    if(user_id==None):
+        return {'message':"connection error"},401
+
+    limit = 10
+    offset=request.args.get('offset')
+    if(offset==None):
+        offset=0
+    else:
+        try:
+            offset=int(offset)
+        except:
+            return {'message':"invalid input"},400
+    
+    phrase=request.args.get('phrase')
+    if(phrase==None):
+        phrase=""
+    category=request.args.get('category')
+        
+    phrase="_*"+phrase+"_*"
+    if(category==None):
+        cursor.execute("""
+            SELECT 
+                id, title, category, 
+                small_portion, medium_portion, large_portion, 
+                small_price, medium_price, large_price, portion_unit,
+                description, discount_base
+            FROM
+            (SELECT id, title, category, 
+                small_portion, medium_portion, large_portion, 
+                small_price, medium_price, large_price, portion_unit,
+                description, discount_base, 
+                ROW_NUMBER() OVER(ORDER BY popularity DESC) AS ind
+                FROM public.dish
+            WHERE title SIMILAR TO %s) 
+
+            WHERE ind> %s AND ind<= %s
+            ORDER BY ind asc;
+            """,(phrase,offset,offset+limit))
+    else:
+        cursor.execute("""
+            SELECT 
+                id, title, category, 
+                small_portion, medium_portion, large_portion, 
+                small_price, medium_price, large_price, portion_unit,
+                description, discount_base
+            FROM
+            (SELECT id, title, category, 
+                small_portion, medium_portion, large_portion, 
+                small_price, medium_price, large_price, portion_unit,
+                description, discount_base, 
+                ROW_NUMBER() OVER(ORDER BY popularity DESC) AS ind
+                FROM public.dish
+            WHERE title SIMILAR TO %s AND category = %s) 
+
+            WHERE ind> %s AND ind<= %s
+            ORDER BY ind asc;
+            """,(phrase,category,offset,offset+limit))
+
+    dishes=cursor.fetchall()
+
+    formatted_dishes=[
+        {'id':dish[0], 'title':dish[1], 'category':dish[2], 
+            'small_portion':dish[3], 'medium_portion':dish[4],
+            'large_portion':dish[5],'small_price':dish[6],
+            'medium_price':dish[7], 'large_price':dish[8], 'portion_unit':dish[9],
+            'description':dish[10], 'discount_base':dish[11]}
+        for dish in dishes
+    ]
+
+    return {'message':f"""returning valid dishes, from {offset} to {offset+limit}""",
+            'dishes':formatted_dishes},200
+
+    
 #---------
 order1={
     "items": [
