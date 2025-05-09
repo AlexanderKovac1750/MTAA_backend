@@ -469,20 +469,20 @@ def change_preferences():
 
     return "preferences changed successfully"
 
-@app.post("/add_favourite")
+@app.post("/favourite")
 def add_favourite():
-    name = request.args.get("name")
+    token=request.args.get('token')
+    if(token==None):
+        return {'message':"missing token"},401
+    
+    user_id=get_id(token)
+    if(user_id==None):
+        return {'message':"no session with this user"},401
+    
     dish_name = request.args.get("dish_name")
- 
     dish_id = find_in_database("dish", "title", dish_name)
- 
     if not (dish_id):
-        return "dish does not exist"
- 
-    if not find_in_database("user", "name", name):
-        return "invalid user"
-
-    user_id = find_in_database("user", "name", name)
+        return {'message':"dish does not exist"},404
  
     cursor.execute("""
     SELECT dish_id 
@@ -495,7 +495,7 @@ def add_favourite():
         return "dish is already favourite"
  
  
-    fav_free = get_from_database("favourite_free", "user", "name", name)
+    fav_free = get_from_database("favourite_free", "user", "id", user_id)
     if fav_free == 0:
         return "no space left, sorry :c"
  
@@ -514,20 +514,20 @@ def add_favourite():
     return "added favourite successfully"
 
 
-@app.delete("/remove_favourite")
+@app.delete("/favourite")
 def remove_favourite():
-    name = request.args.get("name")
+    token=request.args.get('token')
+    if(token==None):
+        return {'message':"missing token"},401
+    
+    user_id=get_id(token)
+    if(user_id==None):
+        return {'message':"no session with this user"},401
+    
     dish_name = request.args.get("dish_name")
-
     dish_id = find_in_database("dish", "title", dish_name)
-
     if not (dish_id):
-        return "dish does not exist"
-
-    if not find_in_database("user", "name", name):
-        return "invalid user"
-
-    user_id = find_in_database("user", "name", name)
+        return {'message':"dish does not exist"},404
 
     cursor.execute("""
         SELECT dish_id 
@@ -547,10 +547,44 @@ def remove_favourite():
     except:
         return "something went wrong during remove favourite"
 
-    fav_free = get_from_database("favourite_free", "user", "name", name)
+    fav_free = get_from_database("favourite_free", "user", "id", user_id)
     set_in_database("user", "id", user_id, "favourite_free", fav_free+1)
     return "removed favourite successfully"
 
+@app.get("/favourite")
+def get_favourites():
+    token=request.args.get('token')
+    if(token==None):
+        return {'message':"missing token"},401
+    
+    user_id=get_id(token)
+    if(user_id==None):
+        return {'message':"no session with this user"},401
+
+    cursor.execute("""
+            SELECT 
+                d.id, title, category, 
+                small_portion, medium_portion, large_portion, 
+                small_price, medium_price, large_price, portion_unit,
+                description, discount_base
+            FROM public.dish AS d JOIN public.favourites AS f
+            ON d.id = f.dish_id
+            WHERE f.user_id = %s
+            """,(user_id,))
+    dishes=cursor.fetchall()
+
+    formatted_dishes=[
+        {'id':dish[0], 'title':dish[1], 'category':dish[2], 
+            'small_portion':dish[3], 'medium_portion':dish[4],
+            'large_portion':dish[5],'small_price':dish[6],
+            'medium_price':dish[7], 'large_price':dish[8], 'portion_unit':dish[9],
+            'description':dish[10], 'discount_base':dish[11]}
+        for dish in dishes
+    ]
+
+    return {'message':"""returning favourite dishes""",
+            'dishes':formatted_dishes},200
+    
 
 @app.delete("/cancel_reservation")
 def cancel_reservation():
@@ -1100,11 +1134,11 @@ def get_filtered_dishes():
     
     token=request.args.get('token')
     if(token==None):
-        return {'message':"connection error"},401
+        return {'message':"missing token"},401
     
     user_id=get_id(token)
     if(user_id==None):
-        return {'message':"connection error"},401
+        return {'message':"no session with this user"},401
 
     limit = 10
     offset=request.args.get('offset')
