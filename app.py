@@ -271,10 +271,10 @@ def get_id(token):
         FROM public."user"
         WHERE token = %s ;
         """,(token,))
-    res = cursor.fetchone()
-    if(res==None):
+    res1 = cursor.fetchone()
+    if(res1==None):
         return None
-    return res[0]
+    return res1[0]
 
 def invalidate_user_token(token):
     cursor.execute("""
@@ -492,12 +492,11 @@ def add_favourite():
     check=cursor.fetchone()
 
     if check:
-        return "dish is already favourite"
- 
+        return {'message':"dish is already favourite"},409 
  
     fav_free = get_from_database("favourite_free", "user", "id", user_id)
     if fav_free == 0:
-        return "no space left, sorry :c"
+        return {'message':"no space left, sorry :c"},400
  
     try:
         cursor.execute("""
@@ -507,11 +506,10 @@ def add_favourite():
         """, (user_id, dish_id))
         connection.commit()
     except:
-        return "something went wrong during add favourite"
+        return {'message':"something went wrong during add favourite"},500 
  
     set_in_database("user", "id", user_id, "favourite_free", fav_free-1)
- 
-    return "added favourite successfully"
+    return {'message':"added favourite successfully"},200
 
 
 @app.delete("/favourite")
@@ -537,7 +535,7 @@ def remove_favourite():
     check = cursor.fetchone()
 
     if not check:
-        return "dish is not in favourites"
+        return {'message':"dish is not in favourites"},404
 
     try:
         cursor.execute("""
@@ -545,11 +543,11 @@ def remove_favourite():
         WHERE user_id = %s and dish_id = %s; """,(user_id, dish_id))
         connection.commit()
     except:
-        return "something went wrong during remove favourite"
+        return {'message':"something went wrong during remove favourite"},500 
 
     fav_free = get_from_database("favourite_free", "user", "id", user_id)
     set_in_database("user", "id", user_id, "favourite_free", fav_free+1)
-    return "removed favourite successfully"
+    return {'message':"removed favourite successfully"},200 
 
 @app.get("/favourite")
 def get_favourites():
