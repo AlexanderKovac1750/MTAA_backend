@@ -404,10 +404,13 @@ def account_info():
              language, darkmode, high_contrast
             FROM public."user" AS u JOIN public.preferences AS p
             ON u.id = p.user_id
-            WHERE u.user_id = %s
+            WHERE u.id = %s
             """,(user_id,))
     result = cursor.fetchone()
-    return row, 200 if result else ({"message": "User not found"}, 404)
+    if result:
+        result, 200
+    else:
+        return {"message": "User not found"}, 404
 
 
 
@@ -607,7 +610,7 @@ def get_favourites():
             'dishes':formatted_dishes},200
 
 @app.get("/reservation")	#user + reservation
-def account_info():
+def account_reservations():
     token = request.args.get('token')
     if (token == None):
         return {'message': "missing token"}, 401
@@ -618,11 +621,11 @@ def account_info():
 
     order = get_from_database("id", "order", "user", user_id)
     if (order == None):
-        return {'message': "invalid order"}, 401
+        return {'message': "no order"}, 404
 
     reservation = get_from_database("id", "reservation", "order_id", order)
     if (reservation == None):
-        return {'message': "invalid reservation"}, 401
+        return {'message': "no reservation"}, 404
 
     cursor.execute("""
             SELECT r.id, date, "from", until, people, "table", "QR code"
@@ -630,7 +633,7 @@ def account_info():
             ON u.id = o."user"
             JOIN public.reservation AS r
             ON o.id = r.order_id
-            WHERE u.user_id = %s
+            WHERE u.id = %s
             """,(user_id,))
     result = cursor.fetchall()
     return result, 200
