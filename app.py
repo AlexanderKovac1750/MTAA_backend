@@ -399,22 +399,15 @@ def change_password():
 def account_info():
     token = request.args.get('token')
     if (token == None):
-        return {'message': "missing token"}, 401
+        return  jsonify({'message': "missing token"}), 401
 
     user_id = get_id(token)
     if (user_id == None):
-        return {'message': "no session with this user"}, 401
+        return jsonify({'message': "no session with this user"}), 401
 
-    pref = get_from_database("pref_id", "user", "id", user_id) #here
-    if (pref == None):
-        cursor.execute("""
-        UPDATE public."user" SET pref_id = gen_random_uuid()  WHERE id = %s;
-        """, (user_id,))
-        connection.commit()
-        cursor.execute("""
-        UPDATE public.preferences SET id = %s WHERE user_id = %s;
-        """, (pref, user_id))
-        connection.commit()
+    pref = get_from_database("pref_id", "user", "id", user_id)
+    # if (pref == None):                                        #do not use
+    #     return jsonify({'message': "no preference"}), 404
 
     cursor.execute("""
             SELECT "name", discount_points, loyalty_points,
@@ -425,14 +418,23 @@ def account_info():
             WHERE u.id = %s
             """,(user_id,))
     result = cursor.fetchone()
-    if result:
-        return {'message':"success", 'account_info':{
-            'name':result[0], 'discount_points':result[1],
-            'loyalty_points': result[2], 'level':result[3],
-            'favourite_capacity':result[4]
-                                                     }}, 200
-    else:
-        return {"message": "User not found"}, 404
+
+    if not result:
+        return jsonify({'message': "User not found"}), 404
+
+    return jsonify({
+        'account_info': {
+            'name': result[0],
+            'discount_points': result[1],
+            'loyalty_points': result[2],
+            'level': result[3],
+            'favourite_capacity': result[4],
+            'favourite_free': result[5],
+            'language': result[6],
+            'darkmode': result[7],
+            'high_contrast': result[8],
+        }
+    }), 200
 
 
 
@@ -486,6 +488,10 @@ def remove_user():
 @app.post("/change_preferences")
 def change_preferences():
     data = request.get_json()
+    token = data.get("token")
+    language = data.get("language")
+    darkmode = data.get("darkmode")
+    high_contrast = data.get("high_contrast")
 
     if not data or 'token' not in data:
         return jsonify({'message': 'Missing token'}), 400
@@ -493,10 +499,6 @@ def change_preferences():
     user_id = get_id(data['token'])
     if user_id is None:
         return jsonify({'message': 'Invalid or expired session'}), 401
-
-    language = data.get("language")
-    darkmode = data.get("darkmode")
-    high_contrast = data.get("high_contrast")
 
     # Check if preferences exist
     cursor.execute("""SELECT 1 FROM preferences WHERE user_id = %s""", (user_id,))
@@ -520,9 +522,13 @@ def change_preferences():
     if high_contrast is not None:
         cursor.execute("""UPDATE preferences SET high_contrast = %s WHERE user_id = %s""", (high_contrast, user_id))
 
+    pref = get_from_database("id", "preferences", "user_id", user_id)
+
+    cursor.execute("""UPDATE "user" SET pref_id = %s WHERE id = %s""", (pref, user_id))
+
     connection.commit()
 
-    return jsonify({'message': 'Preferences updated successfully'}), 200
+    return jsonify({'success: True'}), 200
 
 
 @app.post("/favourite")
@@ -648,19 +654,19 @@ def get_favourites():
 def account_reservations():
     token = request.args.get('token')
     if (token == None):
-        return {'message': "missing token"}, 401
+        return jsonify({'message': "missing token"}), 401
 
     user_id = get_id(token)
     if (user_id == None):
-        return {'message': "no session with this user"}, 401
+        return jsonify({'message': "no session with this user"}), 401
 
     order = get_from_database("id", "order", "user", user_id)
     if (order == None):
-        return {'message': "no order"}, 404
+        return jsonify({'message': "no order"}), 404
 
     reservation = get_from_database("id", "reservation", "order_id", order)
     if (reservation == None):
-        return {'message': "no reservation"}, 404
+        return jsonify({'message': "no reservation"}), 404
 
     cursor.execute("""
             SELECT r.id, date, "from", until, people, "table"
@@ -669,10 +675,22 @@ def account_reservations():
             JOIN public.reservation AS r
             ON o.id = r.order_id
             WHERE u.id = %s
+            ORDER BY date DESC, time_from DESC
             """,(user_id,))
     result = cursor.fetchall()
-    return {'message':"success",
-            'reservations':result}, 200
+    reservations = [
+        {
+            'id': row[0],
+            'date': row[1].isoformat(),
+            'from': row[2],
+            'until': row[3],
+            'people': row[4],
+            'table': row[5],
+        }
+        for row in result
+    ]
+
+    return jsonify({'reservations': reservations}), 200
 
 @app.delete("/cancel_reservation")
 def cancel_reservation():
