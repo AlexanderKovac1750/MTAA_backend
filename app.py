@@ -365,35 +365,76 @@ def login(name, password):
     
     return password_salt[0].tobytes() == pass_hash
 
+@app.get("/sensitive_info")
+def get_sensitive_info():
+    token = request.args.get("token")
+    if not token:
+        return jsonify({'message': "missing token"}), 401
+
+    user_id = get_id(token)
+    if user_id is None:
+        return jsonify({'message': "no session with this user"}), 401
+
+    cursor.execute('SELECT type FROM "user" WHERE id = %s', (user_id,))
+    user = cursor.fetchone()
+    if not user:
+        return jsonify({'message': "user not found"}), 404
+
+    user_type = user[0]
+    return jsonify({'user_type': user_type}), 200
+
+
 @app.put("/change_password")
 def change_password():
-    name = request.args.get("name")
+    token = request.args.get("token")
+    user_type = request.args.get("user_type", "anonymous")
     old_password = request.args.get("old_password")
     new_password = request.args.get("new_password")
- 
-    if not find_in_database("user", "name", name):
-        return "incorrect user name"
- 
-    # print(name, old_password, new_password)
-    if login(name, old_password):
-        user_salt = random.randbytes(8)
+
+    if not token or not new_password:
+        return jsonify({'message': "missing required fields"}), 401
+
+    user_id = get_id(token)
+    if user_id is None:
+        return jsonify({'message': "no session with this user"}), 401
+
+    cursor.execute('SELECT password, salt FROM "user" WHERE id = %s', (user_id,))
+    user = cursor.fetchone()
+    if not user:
+        return jsonify({'message': "invalid token"}), 401
+
+    stored_password, salt = user
+
+    if user_type != "admin":
+        if not old_password:
+            return jsonify({'message': "old password is required"}), 401
+
         sha256 = hashlib.sha256()
-        sha256.update(new_password.encode())
-        sha256.update(user_salt)
-        pass_hash = sha256.hexdigest().encode()
- 
-        try:
-            cursor.execute("""
-            UPDATE "user" 
+        sha256.update(old_password.encode())
+        sha256.update(salt)
+        hashed_input = sha256.hexdigest().encode()
+
+        if stored_password != hashed_input:
+            return jsonify({'message': "incorrect old password"}), 403
+
+    user_salt = random.randbytes(8)
+    sha256 = hashlib.sha256()
+    sha256.update(new_password.encode())
+    sha256.update(user_salt)
+    pass_hash = sha256.hexdigest().encode()
+
+    try:
+        cursor.execute("""
+            UPDATE "user"
             SET password = %s, salt = %s
-            WHERE name = %s ;
-            """,(pass_hash, user_salt, name))
-            connection.commit()
-        except:
-            return "something went wrong during password update"
-        return "password changed successfully"
-    else:
-        return "incorrect old password"
+            WHERE id = %s;
+        """, (pass_hash, user_salt, user_id))
+        connection.commit()
+    except Exception as e:
+        print("Error during update:", e)
+        return jsonify({'message': "something went wrong during password update"}), 500
+
+    return jsonify({'message': "password changed successfully"}), 200
 
 @app.get("/account_info")	#user + preferences
 def account_info():
@@ -665,9 +706,9 @@ def account_reservations():
     if (order == None):
         return jsonify({'message': "no order"}), 404
 
-    #reservation = get_from_database("id", "reservation", "order_id", order)
-    #if (reservation == None):
-        #return jsonify({'message': "no reservation"}), 404
+    # reservation = get_from_database("id", "reservation", "order_id", order)
+    # if (reservation == None):
+    #     return jsonify({'message': "no reservation"}), 404
 
     cursor.execute("""
             SELECT r.id, date, "from", until, people, "table"
