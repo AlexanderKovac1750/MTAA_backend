@@ -329,7 +329,7 @@ def register_user(name, password, user_role="registered"):
             VALUES (
             gen_random_uuid(), %s, %s, %s, 
             0, 0, 0, 
-            0, 1, null,
+            0, 0, null,
             %s );
             """, (name, pass_hash, salt, user_role))
         connection.commit()
@@ -1140,7 +1140,10 @@ def delivery():
         %s, %s, false);
         """, (order_id, address[0],address[1],address[2]))
     connection.commit()
-    return {'message':"delivery order successful"},200
+    return {'message':"delivery order successful",
+            'order id':order_id,
+            'price': get_from_database('price','order','id',order_id)
+            },200
 
 from datetime import datetime, timedelta
 @app.post("/reservation")
@@ -1267,7 +1270,10 @@ def make_reservation():
         %s, %s, NULL, NULL);
         """, (order_id, dtime[0], dtime[1], dtime[2], people))
     connection.commit()
-    return {'message': "reservation order successful"}, 200
+    return {'message': "reservation order successful",
+            'order id':order_id,
+            'price': get_from_database('price','order','id',order_id)
+            },200
 
 
 @app.get("/discounts")
@@ -1292,7 +1298,9 @@ def available_discounts():
     except:
         formatted_discounts=[]
     return {'message': "listing available discounts",
-            'discounts':formatted_discounts}, 200
+            'discounts':formatted_discounts,
+            'owned DPs':get_from_database('discount_points', 'user', 'token',token)
+            }, 200
 
 from flask import send_file
 from flask import Response
