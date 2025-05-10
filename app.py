@@ -408,9 +408,8 @@ def account_info():
     pref = get_from_database("pref_id", "user", "id", user_id) #here
     if (pref == None):
         cursor.execute("""
-        INSERT INTO public."user"(pref_id)
-          VALUES (gen_random_uuid());
-        """)
+        UPDATE public."user" SET pref_id = gen_random_uuid()  WHERE id = %s;
+        """, (user_id,))
         connection.commit()
         cursor.execute("""
         UPDATE public.preferences SET id = %s WHERE user_id = %s;
