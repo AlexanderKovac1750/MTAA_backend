@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import psycopg2
 import random
 import hashlib
@@ -9,8 +9,8 @@ app = Flask(__name__)
 connection=psycopg2.connect(
     host="localhost",
     database="MTAA",
-    user="postgres",
-    password="123"
+    user="Guest",
+    password="345f"
     )
 cursor = connection.cursor()
 def find_in_database(table, column, value):
@@ -465,39 +465,47 @@ def remove_user():
 
     return "user removed successfully"
 
-@app.put("/change_preferences")
+@app.post("/change_preferences")
 def change_preferences():
-    name = request.args.get("name")
-    language = request.args.get("language")
-    darkmode = request.args.get("darkmode")
-    high_contrast = request.args.get("high_contrast")
+    data = request.get_json()
 
-    user_id = find_in_database("user", "name", name)
-    if not user_id:
-        return "invalid user"
+    if not data or 'token' not in data:
+        return jsonify({'message': 'Missing token'}), 400
 
-    if not find_in_database("preferences", "user_id", user_id):
+    user_id = get_id(data['token'])
+    if user_id is None:
+        return jsonify({'message': 'Invalid or expired session'}), 401
+
+    language = data.get("language")
+    darkmode = data.get("darkmode")
+    high_contrast = data.get("high_contrast")
+
+    # Check if preferences exist
+    cursor.execute("""SELECT 1 FROM preferences WHERE user_id = %s""", (user_id,))
+    if cursor.fetchone() is None:
+        # Insert default preferences (or use data from request if preferred)
         try:
             cursor.execute("""
-            INSERT INTO public.preferences(
-            id, user_id, language, darkmode, high_contrast)
-            VALUES (gen_random_uuid(), %s, %s, %s, %s);
-            """, (user_id, 'ENG', True, False))
+                INSERT INTO preferences (id, user_id, language, darkmode, high_contrast)
+                VALUES (gen_random_uuid(), %s, %s, %s, %s)
+            """, (user_id, language or 'ENG', darkmode or False, high_contrast or False))
             connection.commit()
-        except:
-            return "something went wrong during setting up preferences"
+        except Exception as e:
+            print(e)
+            return jsonify({'message': 'Error inserting preferences'}), 500
 
+    # Update only provided fields
+    if language is not None:
+        cursor.execute("""UPDATE preferences SET language = %s WHERE user_id = %s""", (language, user_id))
+    if darkmode is not None:
+        cursor.execute("""UPDATE preferences SET darkmode = %s WHERE user_id = %s""", (darkmode, user_id))
+    if high_contrast is not None:
+        cursor.execute("""UPDATE preferences SET high_contrast = %s WHERE user_id = %s""", (high_contrast, user_id))
 
-    if language:
-        set_in_database("preferences", "user_id", user_id, "language", language)
+    connection.commit()
 
-    if darkmode:
-        set_in_database("preferences", "user_id", user_id, "darkmode", darkmode)
+    return jsonify({'message': 'Preferences updated successfully'}), 200
 
-    if high_contrast:
-        set_in_database("preferences", "user_id", user_id, "high_contrast", high_contrast)
-
-    return "preferences changed successfully"
 
 @app.post("/favourite")
 def add_favourite():
@@ -902,7 +910,7 @@ print(add_dish_to_menu("vyvar","polievka",(200,1.30),(300,1.69),None,
 print("setting special")
 set_today_special("vodka")
 bind_image_to_dish("DB.png","zemiaky")
-bind_image_to_dish("meme.jpg","vodka")
+bind_image_to_dish("meme.png","vodka")
 
 
 
