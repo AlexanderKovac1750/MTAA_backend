@@ -665,9 +665,9 @@ def account_reservations():
     if (order == None):
         return jsonify({'message': "no order"}), 404
 
-    reservation = get_from_database("id", "reservation", "order_id", order)
-    if (reservation == None):
-        return jsonify({'message': "no reservation"}), 404
+    #reservation = get_from_database("id", "reservation", "order_id", order)
+    #if (reservation == None):
+        #return jsonify({'message': "no reservation"}), 404
 
     cursor.execute("""
             SELECT r.id, date, "from", until, people, "table"
