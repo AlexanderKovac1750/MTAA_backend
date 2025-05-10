@@ -9,8 +9,8 @@ app = Flask(__name__)
 connection=psycopg2.connect(
     host="localhost",
     database="MTAA",
-    user="Guest",
-    password="345f"
+    user="postgres",
+    password="123"
     )
 cursor = connection.cursor()
 def find_in_database(table, column, value):
@@ -266,15 +266,20 @@ def get_user_token(name):
     return res[0]
 
 def get_id(token):
-    cursor.execute("""
-        SELECT id
-        FROM public."user"
-        WHERE token = %s ;
-        """,(token,))
-    res1 = cursor.fetchone()
-    if(res1==None):
+    try:
+        cursor.execute("""
+            SELECT id
+            FROM public."user"
+            WHERE token = %s ;
+            """,(token,))
+        if(cursor.description is None):
+            return None
+        res1 = cursor.fetchone()
+        if(res1==None):
+            return None
+        return res1[0]
+    except:
         return None
-    return res1[0]
 
 def invalidate_user_token(token):
     cursor.execute("""
@@ -597,6 +602,7 @@ def get_favourites():
     if(user_id==None):
         return {'message':"no session with this user"},401
 
+    connection.commit()
     cursor.execute("""
             SELECT 
                 d.id, title, category, 
@@ -608,15 +614,19 @@ def get_favourites():
             WHERE f.user_id = %s
             """,(user_id,))
     dishes=cursor.fetchall()
+    connection.commit()
 
-    formatted_dishes=[
-        {'id':dish[0], 'title':dish[1], 'category':dish[2], 
-            'small_portion':dish[3], 'medium_portion':dish[4],
-            'large_portion':dish[5],'small_price':dish[6],
-            'medium_price':dish[7], 'large_price':dish[8], 'portion_unit':dish[9],
-            'description':dish[10], 'discount_base':dish[11]}
-        for dish in dishes
-    ]
+    if(len(dishes)>0):
+        formatted_dishes=[
+            {'id':dish[0], 'title':dish[1], 'category':dish[2], 
+                'small_portion':dish[3], 'medium_portion':dish[4],
+                'large_portion':dish[5],'small_price':dish[6],
+                'medium_price':dish[7], 'large_price':dish[8], 'portion_unit':dish[9],
+                'description':dish[10], 'discount_base':dish[11]}
+            for dish in dishes
+        ]
+    else:
+        formatted_dishes=[]
 
     return {'message':"""returning favourite dishes""",
             'dishes':formatted_dishes},200
