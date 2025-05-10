@@ -794,7 +794,21 @@ def add_order(user_id, items, comment, discount):
     print("comment:",comment)
     ids=[]
     if(not items):
-        return None
+        order_id=None
+        try:
+            cursor.execute("""
+                INSERT INTO public."order"(
+                id, "user", "timestamp", comment,
+                price, discount_used, items_start, items_end)
+                VALUES (gen_random_uuid(), %s, NOW(), %s,
+                %s, %s, %s, %s) RETURNING id;
+                """,(user_id, comment,0.0,
+                discount, None, None))
+            order_id=cursor.fetchone()[0]
+            return order_id
+        except:
+            connection.commit()
+            return None
 
     #get discount effect
     try:
@@ -1084,18 +1098,22 @@ def delivery():
 from datetime import datetime, timedelta
 @app.post("/reservation")
 def make_reservation():
-    
-    name = request.args.get('name')
-    user_id=find_in_database("user","name",name)
-    if(user_id == None):
-        return "invalid user", 401
+    token = request.args.get('token')
+    if (token == None):
+        return {'message': "missing token"}, 401
+
+    user_id = get_id(token)
+    if (user_id == None):
+        return {'message': "no session with this user"}, 401
 
     try:
         data=json.loads(request.data)
     except:
-        return "wrong format"
+        return {'message': "wrong format"}, 400
 
-    if(True):
+    print(data)
+    try:
+        data=data["body"]
         dtime=[0,0,0]
         people=int(data["people"])
         json_dtime=data["datetime"]
@@ -1104,15 +1122,15 @@ def make_reservation():
         dtime[2]=datetime.strptime(str(json_dtime["until"]),"%H:%M").time()
         timestring=str(dtime[0].date())+' '+str(dtime[1])
         from_dtime=datetime.strptime(timestring,"%Y-%m-%d %H:%M:%S")
-    else:
-        return "wrong time fromat"
+    except:
+        return {'message': "wrong time format"}, 400
 
     if(dtime[1]>dtime[2]):
-        return "departure needs to happen after arrival"
+        return {'message': "departure needs to happen after arrival"}, 400
     valid_frod_dtime=datetime.now() + timedelta(hours=1)
     if(from_dtime<valid_frod_dtime):
-        return f"""reservation can be at earliest
-    {valid_frod_dtime.replace(second=0, microsecond=0)}"""
+        return {'message': f"""reservation can be at earliest
+    {valid_frod_dtime.replace(second=0, microsecond=0)}"""}, 400
         
 
     try:
@@ -1141,7 +1159,9 @@ def make_reservation():
                 
                 items[i][0]=find_in_database("dish","title",json_items[i]["name"])
                 if(items[i][0]==None):
-                    return f'nonexistant food: {json_items[i]["name"]}'
+                    return {'message':
+                            f'nonexistant food: {json_items[i]["name"]}'
+                            },404
 
                 items[i][1]=json_items[i]["size"]
                 if(items[i][1]=="small"):
@@ -1151,24 +1171,28 @@ def make_reservation():
                 elif(items[i][1]=="large"):
                     items[i][1]=3
                 else:
-                    return f"invalid portion size: {items[i][1]}"
+                    return {'message':
+                            f"invalid portion size: {items[i][1]}"
+                            },400
 
                 
                 items[i][2]=int(json_items[i]["count"])
                 if(items[i][2]<1):
-                    return f'wrong food count {json_items[i]["name"]}:{json_items[i]["count"]}'
+                    return {'message':f'wrong food count {json_items[i]["name"]}:{json_items[i]["count"]}'},400
         except:
-            return "invalid food item format"
+            return {'message':"invalid food item format"},400
 
         order_id=add_order(user_id, items, comment, discount)
         if(order_id==None):
-            return "order failed"
+            return {'message': "order failed"}, 400
 
         if(order_id.__class__ == list):
-            return f"nonexistant food portion size {order_id}"
+            return {'message':
+                    f"nonexistant food portion size {order_id}"
+                    },404
 
         if(order_id.__class__ == tuple):
-            return order_id[0]
+            return {'message': order_id[0]}, 400
     else:
         cursor.execute("""
             INSERT INTO public."order"(
@@ -1197,7 +1221,8 @@ def make_reservation():
         %s, %s, NULL, NULL);
         """, (order_id, dtime[0], dtime[1], dtime[2], people))
     connection.commit()
-    return "reservation order successful"
+    return {'message': "reservation order successful"}, 200
+
 
 @app.get("/discounts")
 def available_discounts():
