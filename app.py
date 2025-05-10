@@ -400,23 +400,16 @@ def change_password():
     if user_id is None:
         return jsonify({'message': "no session with this user"}), 401
 
-    cursor.execute('SELECT password, salt FROM "user" WHERE id = %s', (user_id,))
-    user = cursor.fetchone()
-    if not user:
-        return jsonify({'message': "invalid token"}), 401
-
-    stored_password, salt = user
+    cursor.execute('SELECT name FROM "user" WHERE id = %s', (user_id,))
+    name = cursor.fetchone()
+    if not name:
+        return jsonify({'message': "invalid user"}), 401
 
     if user_type != "admin":
         if not old_password:
             return jsonify({'message': "old password is required"}), 401
 
-        sha256 = hashlib.sha256()
-        sha256.update(old_password.encode())
-        sha256.update(salt)
-        hashed_input = sha256.hexdigest().encode()
-
-        if stored_password != hashed_input:
+        if not login(name, old_password):
             return jsonify({'message': "incorrect old password"}), 403
 
     user_salt = random.randbytes(8)
