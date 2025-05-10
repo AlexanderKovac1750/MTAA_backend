@@ -296,7 +296,7 @@ def invalidate_user_token(token):
         return None
     return res[0]
 
-def register_user(name, password):
+def register_user(name, password, user_role="registered"):
     name=str(name)
     password=str(password)
     
@@ -324,12 +324,14 @@ def register_user(name, password):
         INSERT INTO public."user"(
             id, name, password, salt, 
             discount_points, loyalty_points, level, 
-            favourite_capacity, favourite_free, pref_id)
+            favourite_capacity, favourite_free, pref_id,
+            type)
             VALUES (
             gen_random_uuid(), %s, %s, %s, 
             0, 0, 0, 
-            0, 1, null);
-            """, (name, pass_hash, salt))
+            0, 1, null,
+            %s );
+            """, (name, pass_hash, salt, user_role))
         connection.commit()
     except:
         return None
