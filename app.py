@@ -11,8 +11,8 @@ app = Flask(__name__)
 connection=psycopg2.connect(
     host="localhost",
     database="MTAA",
-    user="Guest",
-    password="345f"
+    user="postgres",
+    password="123"
     )
 cursor = connection.cursor()
 def find_in_database(table, column, value):
@@ -287,9 +287,9 @@ def invalidate_user_token(token):
     cursor.execute("""
         UPDATE public."user"
         SET token = null
-        WHERE name= %s
+        WHERE token = %s
         RETURNING token;
-        """,(name,))
+        """,(token,))
     res = cursor.fetchone()
     connection.commit()
     if(res==None):
@@ -527,18 +527,19 @@ def remove_user():
 @app.post("/change_preferences")
 def change_preferences():
     data = request.get_json()
+    
     token = data.get("token")
     language = data.get("language")
     darkmode = data.get("darkmode")
     high_contrast = data.get("high_contrast")
-
+    
     if not data or 'token' not in data:
         return jsonify({'message': 'Missing token'}), 400
 
     user_id = get_id(data['token'])
     if user_id is None:
         return jsonify({'message': 'Invalid or expired session'}), 401
-
+    
     # Check if preferences exist
     cursor.execute("""SELECT 1 FROM preferences WHERE user_id = %s""", (user_id,))
     if cursor.fetchone() is None:
@@ -552,7 +553,7 @@ def change_preferences():
         except Exception as e:
             print(e)
             return jsonify({'message': 'Error inserting preferences'}), 500
-
+    
     # Update only provided fields
     if language is not None:
         cursor.execute("""UPDATE preferences SET language = %s WHERE user_id = %s""", (language, user_id))
@@ -562,12 +563,12 @@ def change_preferences():
         cursor.execute("""UPDATE preferences SET high_contrast = %s WHERE user_id = %s""", (high_contrast, user_id))
 
     pref = get_from_database("id", "preferences", "user_id", user_id)
-
+    
     cursor.execute("""UPDATE "user" SET pref_id = %s WHERE id = %s""", (pref, user_id))
-
+    
     connection.commit()
 
-    return jsonify({'success: True'}), 200
+    return jsonify({'success': True}), 200
 
 
 @app.post("/favourite")
@@ -718,7 +719,7 @@ def account_reservations():
             ORDER BY date DESC, "from" DESC
             """,(user_id,))
     result = cursor.fetchall()
-    print(result)
+    
     reservations = [
         {
             'id': row[0],
@@ -1015,10 +1016,12 @@ bind_image_to_dish("meme.png","vodka")
 def try_to_login():
     name = request.args.get('name')
     password = request.args.get('password')
-    
+
+    token = get_user_token(name)
     if(login(name,password)):
         return {'message':"correct password",
-                'token':get_user_token(name)},200
+                'token':token,
+                'type':get_from_database('type', 'user', 'token',token)},200
     else:
         return {'message':"wrong password or username"},401
 
@@ -1040,14 +1043,12 @@ def try_to_register():
 
 @app.post("/logout")
 def try_to_logout():
-    name = request.args.get('name')
-    password = request.args.get('password')
+    token = request.args.get('token')
+    if (token == None):
+        return {'message': "missing token"}, 401
     
-    if(login(name,password)):
-        return {'message':"logged out"},200
-    else:
-        return {'message':"wrong password or username"},401
-
+    invalidate_user_token(token)
+    return {'message': "token invalidated"}, 200
 
 
 @app.post("/delivery")
@@ -1271,10 +1272,27 @@ def make_reservation():
 
 @app.get("/discounts")
 def available_discounts():
-    cursor.execute("""
-        SELECT * FROM discounts;
-        """)
-    return cursor.fetchall()
+    token = request.args.get('token')
+    if (token == None):
+        return {'message': "missing token"}, 401
+
+    try:
+        cursor.execute("""
+            SELECT id, effectivness, cost FROM discounts;
+            """)
+        res = cursor.fetchall()
+    except:
+        return {'message': "failed"}, 500
+
+    try:
+        formatted_discounts=[
+            {'id':disc[0], 'effectivness':disc[1], 'cost':disc[2]}
+            for disc in res
+        ]
+    except:
+        formatted_discounts=[]
+    return {'message': "listing available discounts",
+            'discounts':formatted_discounts}, 200
 
 from flask import send_file
 from flask import Response
