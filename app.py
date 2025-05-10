@@ -635,7 +635,7 @@ def get_favourites():
     dishes=cursor.fetchall()
     connection.commit()
 
-    if(len(dishes)>0):
+    try:
         formatted_dishes=[
             {'id':dish[0], 'title':dish[1], 'category':dish[2], 
                 'small_portion':dish[3], 'medium_portion':dish[4],
@@ -644,7 +644,8 @@ def get_favourites():
                 'description':dish[10], 'discount_base':dish[11]}
             for dish in dishes
         ]
-    else:
+    except:
+        print("error somehow with this: ",dishes)
         formatted_dishes=[]
 
     return {'message':"""returning favourite dishes""",
@@ -675,21 +676,22 @@ def account_reservations():
             JOIN public.reservation AS r
             ON o.id = r.order_id
             WHERE u.id = %s
-            ORDER BY date DESC, time_from DESC
+            ORDER BY date DESC, "from" DESC
             """,(user_id,))
     result = cursor.fetchall()
+    print(result)
     reservations = [
         {
             'id': row[0],
-            'date': row[1].isoformat(),
-            'from': row[2],
-            'until': row[3],
+            'date': str(row[1]),
+            'from': str(row[2]),
+            'until': str(row[3]),
             'people': row[4],
             'table': row[5],
         }
         for row in result
     ]
-
+    print(reservations)
     return jsonify({'reservations': reservations}), 200
 
 @app.delete("/cancel_reservation")
@@ -1011,16 +1013,19 @@ def try_to_logout():
 
 @app.post("/delivery")
 def delivery():
-    
-    name = request.args.get('name')
-    user_id=find_in_database("user","name",name)
-    if(user_id == None):
-        return "invalid user", 401
+    token = request.args.get('token')
+    if (token == None):
+        return {'message': "missing token"}, 401
+
+    user_id = get_id(token)
+    if (user_id == None):
+        return {'message': "no session with this user"}, 401
 
     try:
         data=json.loads(request.data)
+        data=data["body"]
     except:
-        return "wrong format", 400
+        return {'message':"wrong format"}, 400
 
     try:
         address=[0,0,0]
@@ -1029,7 +1034,7 @@ def delivery():
         address[1]=str(json_address["street"])
         address[2]=int(json_address["number"])
     except:
-        return "wrong address fromat", 400
+        return {'message':"wrong address fromat"}, 400
 
     try:
         discount=data["discount used"]
@@ -1044,7 +1049,7 @@ def delivery():
     try:
         json_items=data["items"]
     except:
-        return "no items", 400
+        return {'message':"no items"}, 400
 
     #get order items
     try:
@@ -1054,7 +1059,8 @@ def delivery():
             
             items[i][0]=find_in_database("dish","title",json_items[i]["name"])
             if(items[i][0]==None):
-                return f'nonexistant food: {json_items[i]["name"]}', 404
+                return {'message':
+                        f'nonexistant food: {json_items[i]["name"]}'}, 404
 
             items[i][1]=json_items[i]["size"]
             if(items[i][1]=="small"):
@@ -1064,25 +1070,26 @@ def delivery():
             elif(items[i][1]=="large"):
                 items[i][1]=3
             else:
-                return f"invalid portion size: {items[i][1]}", 400
+                return {'message':f"invalid portion size: {items[i][1]}"}, 400
 
             
             items[i][2]=int(json_items[i]["count"])
             if(items[i][2]<1):
-                return f"""wrong food count {json_items[i]["name"]}:
-                    {json_items[i]["count"]}""", 400
+                return {'message':
+                    f"""wrong food count {json_items[i]["name"]}:
+                    {json_items[i]["count"]}"""}, 400
     except:
-        return "invalid food item format", 400
+        return {'message':"invalid food item format"}, 400
 
     order_id=add_order(user_id, items, comment, discount)
     if(order_id==None):
-        return "order failed", 500
+        return {'message':"order failed"}, 500
 
     if(order_id.__class__ == list):
-        return f"nonexistant food portion size {order_id}",404
+        return {'message':f"nonexistant food portion size {order_id}"},404
 
     if(order_id.__class__ == tuple):
-        return order_id[0],400
+        return {'message':order_id[0]},400
 
     #add delivery
     cursor.execute("""
@@ -1093,7 +1100,7 @@ def delivery():
         %s, %s, false);
         """, (order_id, address[0],address[1],address[2]))
     connection.commit()
-    return "delivery order successful",200
+    return {'message':"delivery order successful"},200
 
 from datetime import datetime, timedelta
 @app.post("/reservation")
@@ -1108,12 +1115,11 @@ def make_reservation():
 
     try:
         data=json.loads(request.data)
+        data=data["body"]
     except:
         return {'message': "wrong format"}, 400
 
-    print(data)
     try:
-        data=data["body"]
         dtime=[0,0,0]
         people=int(data["people"])
         json_dtime=data["datetime"]
