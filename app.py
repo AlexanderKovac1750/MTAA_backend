@@ -1,3 +1,5 @@
+from tkinter.constants import INSERT
+
 from flask import Flask, request, jsonify
 import psycopg2
 import random
@@ -9,8 +11,8 @@ app = Flask(__name__)
 connection=psycopg2.connect(
     host="localhost",
     database="MTAA",
-    user="postgres",
-    password="123"
+    user="Guest",
+    password="345f"
     )
 cursor = connection.cursor()
 def find_in_database(table, column, value):
@@ -402,6 +404,18 @@ def account_info():
     user_id = get_id(token)
     if (user_id == None):
         return {'message': "no session with this user"}, 401
+
+    pref = get_from_database("pref_id", "user", "id", user_id) #here
+    if (pref == None):
+        cursor.execute("""
+        INSERT INTO public."user"(pref_id)
+          VALUES (gen_random_uuid());
+        """)
+        connection.commit()
+        cursor.execute("""
+        UPDATE public.preferences SET id = %s WHERE user_id = %s;
+        """, (pref, user_id))
+        connection.commit()
 
     cursor.execute("""
             SELECT "name", discount_points, loyalty_points,
@@ -1298,10 +1312,10 @@ print(json.dumps(order1))
 #app.run(host='147.175.161.105',port=5000)
 #app.run(host='192.168.0.101',port=5000)
 str_server_address = input("""
-\nchoose server address default is 127.0.0.1:5000\n
+\nchoose server address default is 192.168.0.101:5000\n
 ___address___: port\n""")
 if(str_server_address==''):
-    str_server_address="127.0.0.1:5000"
+    str_server_address="192.168.0.101:5000"
 str_address, port = str_server_address.split(":")
 port=int(port)
 app.run(host=str_address,port=port)
