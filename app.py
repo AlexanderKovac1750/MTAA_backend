@@ -402,13 +402,16 @@ def change_password():
 
     cursor.execute('SELECT name FROM "user" WHERE id = %s', (user_id,))
     name = cursor.fetchone()
+    
     if not name:
         return jsonify({'message': "invalid user"}), 401
-
+    name = name[0]
+    
     if user_type != "admin":
         if not old_password:
             return jsonify({'message': "old password is required"}), 401
 
+        print("trying",name, old_password)
         if not login(name, old_password):
             return jsonify({'message': "incorrect old password"}), 403
 
