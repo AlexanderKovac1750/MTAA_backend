@@ -10,6 +10,7 @@ app = Flask(__name__)
 
 points_per_level=100
 reservation_fee=1.50
+search_result_limit=40
 
 connection=psycopg2.connect(
     host="localhost",
@@ -1421,7 +1422,7 @@ def get_filtered_dishes():
     if(user_id==None):
         return {'message':"no session with this user"},401
 
-    limit = 10
+    limit = search_result_limit
     offset=request.args.get('offset')
     if(offset==None):
         offset=0
