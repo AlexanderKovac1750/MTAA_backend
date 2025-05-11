@@ -1631,74 +1631,125 @@ def add_dish():
         connection.commit()
         return jsonify({"message": "success"}), 200
 
+
 @app.post("/edit_dish")
 def edit_dish():
-    data = request.get_json()
-    if not data:
-        return jsonify({"message": "Invalid data"}), 400
-
-    token = data.get('token')
-    if not token:
-        return jsonify({"message": "Missing token"}), 401
-
-    user_id = get_id(token)
-    if user_id is None:
-        return jsonify({"message": "Invalid session"}), 401
-
-    dish_id = data.get("id")
-    if not dish_id:
-        return jsonify({"message": "Missing dish ID"}), 400
-
-    # Extract fields, allowing nulls
-    title = data.get("title")
-    description = data.get("description")
-    category = data.get("category")
-    unit = data.get("portion_unit")
-    discount_base = data.get("discount_base")
-
-    small_portion = data.get("small_portion")
-    medium_portion = data.get("medium_portion")
-    large_portion = data.get("large_portion")
-
-    small_price = data.get("small_price")
-    medium_price = data.get("medium_price")
-    large_price = data.get("large_price")
-
-    image_base64 = data.get("image_base64")
-    picture = base64.b64decode(image_base64) if image_base64 else None
-
     try:
-        # Build and execute SQL UPDATE
-        update_sql = """
-            UPDATE dish SET
-                title = %s,
-                category = %s,
-                description = %s,
-                portion_unit = %s,
-                discount_base = %s,
-                small_portion = %s,
-                medium_portion = %s,
-                large_portion = %s,
-                small_price = %s,
-                medium_price = %s,
-                large_price = %s,
-                picture = %s
+        data = request.get_json()
+        if not data:
+            return jsonify({"message": "Invalid data"}), 400
+
+        # Authentication and validation
+        token = data.get('token')
+        if not token:
+            return jsonify({"message": "Missing token"}), 401
+
+        user_id = get_id(token)
+        if user_id is None:
+            return jsonify({"message": "Invalid session"}), 401
+
+        dish_id = data.get("id")
+        if not dish_id:
+            return jsonify({"message": "Missing dish ID"}), 400
+
+        # Process image data
+        image_base64 = data.get("image_base64")
+        picture = None
+
+        # old_image_base64 = get_from_database("picture", "dish", 'id', dish_id)    //does not work
+        cursor.execute("""SELECT picture FROM public.dish WHERE id = %s;""", (dish_id,))
+        old_image_base64 = cursor.fetchone()[0]
+
+        if image_base64 and (old_image_base64 != image_base64):
+            # Validate and process Base64 image
+            # if not image_base64.startswith('data:image/'):
+            #     raise ValueError("Invalid image format. Must start with 'data:image/'")
+
+            try:
+                header, encoded = image_base64.split(",", 1)
+                mime_type = header.split(":")[1].split(";")[0]
+                if mime_type not in ['image/jpeg', 'image/png']:
+                    raise ValueError("Only JPEG and PNG images are supported")
+
+                picture = base64.b64decode(encoded)
+            except Exception as e:
+                raise ValueError(f"Invalid image data: {str(e)}")
+
+        # Build dynamic update query
+        update_fields = []
+        values = []
+
+        # Required fields
+        fields = [
+            ('title', data.get("title")),
+            ('category', data.get("category")),
+            ('description', data.get("description")),
+            ('portion_unit', data.get("portion_unit")),
+            ('discount_base', data.get("discount_base")),
+            ('small_portion', data.get("small_portion")),
+            ('medium_portion', data.get("medium_portion")),
+            ('large_portion', data.get("large_portion")),
+            ('small_price', data.get("small_price")),
+            ('medium_price', data.get("medium_price")),
+            ('large_price', data.get("large_price"))
+        ]
+
+        for field, value in fields:
+            if value is not None:
+                update_fields.append(f"{field} = %s")
+                values.append(value)
+
+        # Add picture if provided
+        if picture is not None:
+            update_fields.append("picture = %s")
+            values.append(picture)
+
+        if not update_fields:
+            return jsonify({"message": "No fields to update"}), 400
+
+        # Add dish_id to values
+        values.append(dish_id)
+
+        # Build and execute query
+        update_sql = f"""
+            UPDATE dish 
+            SET {', '.join(update_fields)}
             WHERE id = %s
+            RETURNING *
         """
-        values = (
-            title, category, description, unit, discount_base,
-            small_portion, medium_portion, large_portion,
-            small_price, medium_price, large_price,
-            picture, dish_id
-        )
+
         cursor.execute(update_sql, values)
+        updated_dish = cursor.fetchone()
         connection.commit()
 
-        return jsonify({"message": "Dish updated successfully"}), 200
+        # Convert picture to Base64 for response
+        picture_bytes = updated_dish[12]  # Adjust index based on your schema
+        base64_pic = base64.b64encode(picture_bytes).decode('utf-8') if picture_bytes else None
 
+        return jsonify({
+            "message": "Dish updated successfully",
+            "dish": {
+                "id": str(updated_dish[0]),
+                "title": updated_dish[1],
+                "category": updated_dish[2],
+                "small_portion": updated_dish[3],
+                "medium_portion": updated_dish[4],
+                "large_portion": updated_dish[5],
+                "small_price": parse_price(updated_dish[6]) if updated_dish[6] else None,
+                "medium_price": parse_price(updated_dish[7]) if updated_dish[7] else None,
+                "large_price": parse_price(updated_dish[8]) if updated_dish[8] else None,
+                "portion_unit": updated_dish[9],
+                "description": updated_dish[10],
+                "discount_base": float(updated_dish[11]) if updated_dish[11] else None,
+                "pic": base64_pic
+            }
+        }), 200
+
+    except ValueError as ve:
+        return jsonify({"message": str(ve)}), 400
     except Exception as e:
         connection.rollback()
-        print("Error updating dish:", e)
+        print(f"Error updating dish: {str(e)}")
         return jsonify({"message": "Internal server error"}), 500
 
 
