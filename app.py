@@ -15,8 +15,8 @@ search_result_limit=40
 connection=psycopg2.connect(
     host="localhost",
     database="MTAA",
-    user="Guest",
-    password="345f"
+    user="postgres",
+    password="123"
     )
 cursor = connection.cursor()
 def find_in_database(table, column, value):
@@ -351,6 +351,7 @@ def register_user(name, password, user_role="registered"):
             """, (name, pass_hash, salt, user_role))
         connection.commit()
     except:
+        connection.commit()
         return None
     return True
 
@@ -1574,8 +1575,10 @@ def pay_for_order():
     disc_points = int(points / 5)
 
     # update the account loyalty levels if not anonymous
-    add_points_to_id(disc_points, points, user_id)
-    leveled_up = level_up(user_id)
+    leveled_up=False
+    if(user_type != "anonymous"):
+        add_points_to_id(disc_points, points, user_id)
+        leveled_up = level_up(user_id)
 
     return {'message': "successful payment",
             'leveled_up': leveled_up,
@@ -1903,6 +1906,19 @@ def todays_special():
     else:
         return jsonify({"message": "success"}), 200
 
+@app.post("/anonymous")
+def make_anonymous():
+    random_name= "_ANONYMOUS_"+str(random.randrange(0,10000))
+    random_name+="_"+str(random.randrange(0,10000))
+    random_pass= "_RANPASS_"+str(random.randrange(0,10000))
+    random_pass+="_"+str(random.randrange(0,10000))
+
+    if(register_user(random_name, random_pass, "anonymous")):
+        return {'message':"success",
+                'name':random_name,
+                'password':random_pass}, 200
+    else:
+        return {'message':"failed to create anonymous account"},500
 
 # --------------sockets
 from flask_socketio import SocketIO, emit
