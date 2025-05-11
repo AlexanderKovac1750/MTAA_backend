@@ -1319,15 +1319,32 @@ def make_reservation():
     connection.commit()
         
 
-    #add reservation
+   #add reservation
+    chosen_table=random.randint(0, 10)
     cursor.execute("""
         INSERT INTO public.reservation(
         id, order_id, date, "from",
         until, people, "table", "QR code")
         VALUES (gen_random_uuid(), %s, %s, %s,
-        %s, %s, NULL, NULL);
-        """, (order_id, dtime[0], dtime[1], dtime[2], people))
+        %s, %s, %s, NULL) RETURNING id;
+        """, (order_id, dtime[0], dtime[1], dtime[2], people, chosen_table))
     connection.commit()
+    res_id=cursor.fetchone()
+    if(res_id!=None):
+        res_id=res_id[0]
+
+    #emit to socket
+    data2 = {
+        'id': res_id,
+        'date': str(dtime[0].date()),
+        'from': str(dtime[1]),
+        'until': str(dtime[2]),
+        'people': people,
+        'table': chosen_table,
+        'QR_code': None,
+        }
+    socketio.emit('reservation_update', data2)
+	
     return {'message': "reservation order successful",
             'order id':order_id,
             'price': get_from_database('price','order','id',order_id)
@@ -1778,6 +1795,28 @@ def todays_special():
     else:
         return jsonify({"message": "success"}), 200
 
+#--------------sockets
+from flask_socketio import SocketIO, emit
+from flask_cors import CORS
+
+
+CORS(app)
+
+socketio = SocketIO(app, cors_allowed_origins="*")
+reservations = []
+
+@app.route('/create_reservation', methods=['POST'])
+def create_reservation():
+    
+    data = request.json
+    reservations.append(data)
+    socketio.emit('reservation_update', data)
+    return jsonify({"status": "success"}), 201
+
+@socketio.on('connect')
+def handle_connect():
+    print("Client connected")
+
 #---------
 order1={
     "items": [
@@ -1797,4 +1836,17 @@ if(str_server_address==''):
     str_server_address="192.168.0.101:5000"
 str_address, port = str_server_address.split(":")
 port=int(port)
-app.run(host=str_address,port=port)
+
+import signal
+import sys
+
+def handle_exit(sig, frame):
+    print("Shutting down...")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, handle_exit)  # Handle Ctrl+C
+
+if __name__ == '__main__':
+    socketio.run(app, host=str_address, port=port, debug=True, use_reloader=False)
+
+
