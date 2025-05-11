@@ -15,8 +15,8 @@ search_result_limit=40
 connection=psycopg2.connect(
     host="localhost",
     database="MTAA",
-    user="postgres",
-    password="123"
+    user="Guest",
+    password="345f"
     )
 cursor = connection.cursor()
 def find_in_database(table, column, value):
@@ -867,6 +867,7 @@ def add_dish_to_menu(title, category, description, unit, small, medium, large, d
 
 
 def set_today_special(dish_name):
+
     cursor.execute("""
         SELECT id 
         FROM public.dish
@@ -878,6 +879,7 @@ def set_today_special(dish_name):
     dish_id=dish_id[0]
 
     if(True):
+        cursor.execute("DELETE FROM public.special WHERE true ;")
         cursor.execute("""
             INSERT INTO public.special(
             id,dish_id)
@@ -1385,18 +1387,32 @@ def available_discounts():
 from flask import send_file
 from flask import Response
 from io import BytesIO
+
+
 @app.get("/dish/picture")
 def get_dish_pic():
     dish_name = request.args.get('dish')
-    pic=get_from_database("picture", "dish","title",dish_name)
-    if(pic==None):
-        return "dish pic not found", 404
-    pic=pic.tobytes()
-    
-    return send_file(BytesIO(pic),
-                     mimetype='image/jpg',
-                     as_attachment=False,
-                     download_name='image.jpg')
+
+    # Get image bytes directly
+    cursor.execute("""
+        SELECT picture FROM dish 
+        WHERE title = %s
+    """, (dish_name,))
+
+    result = cursor.fetchone()
+    if not result or not result[0]:
+        return "Image not found", 404
+
+    try:
+        return send_file(
+            BytesIO(result[0].tobytes()),
+            mimetype='image/jpeg',
+            as_attachment=False,
+            download_name=f'{dish_name}.jpg'
+        )
+    except Exception as e:
+        print(f"Image send error: {str(e)}")
+        return "Image processing error", 500
     
 @app.post("/dish/picture")
 def insert_dish_pic():
@@ -1837,6 +1853,29 @@ def delete_dish_from_menu():
         connection.rollback()
         print(f"Error deleting dish: {str(e)}")
         return jsonify({"message": "Internal server error"}), 500
+
+
+@app.get("/todays_special")
+def get_todays_special():
+    token = request.args.get('token')
+    if not token:
+        return {'message': "missing token"}, 401
+
+    user_id = get_id(token)
+    if not user_id:
+        return {'message': "invalid token"}, 401
+
+    # Get special dish ID from database
+    cursor.execute("""
+        SELECT dish_id FROM special 
+        LIMIT 1
+    """)
+    result = cursor.fetchone()
+
+    if not result:
+        return jsonify({"message": "No special dish set"}), 404
+
+    return jsonify({"dish_id": str(result[0])}), 200
 
 
 @app.post("/todays_special")
