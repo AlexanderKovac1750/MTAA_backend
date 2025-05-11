@@ -5,15 +5,15 @@ import psycopg2
 import random
 import hashlib
 import json
-
+import base64
 app = Flask(__name__)
 
 points_per_level=100
 connection=psycopg2.connect(
     host="localhost",
     database="MTAA",
-    user="postgres",
-    password="123"
+    user="Guest",
+    password="345f"
     )
 cursor = connection.cursor()
 def find_in_database(table, column, value):
@@ -52,10 +52,10 @@ def set_in_database(table, column, value, in_column, in_value):
         return None
     return res_id[0]
 
-#@app.get("/store")
+# @app.get("/store")
 #def get_stores():
 #    cursor.execute("""
-#        SELECT table_name 
+#        SELECT table_name
 #        FROM information_schema.tables
 #        WHERE table_schema = 'public'  -- Change if you're using a different schema
 #        ORDER BY table_name;
@@ -69,7 +69,7 @@ def set_in_database(table, column, value, in_column, in_value):
 #    setting = request.args.get('setting')
 #    val = request.args.get('val')
 #    cursor.execute("""
-#        SELECT table_name 
+#        SELECT table_name
 #        FROM information_schema.tables
 #        WHERE table_schema = 'public'  -- Change if you're using a different schema
 #        ORDER BY table_name;
@@ -289,7 +289,7 @@ def invalidate_user_token(token):
     cursor.execute("""
         UPDATE public."user"
         SET token = null
-        WHERE token = %s
+        WHERE token= %s
         RETURNING token;
         """,(token,))
     res = cursor.fetchone()
@@ -298,7 +298,7 @@ def invalidate_user_token(token):
         return None
     return res[0]
 
-def register_user(name, password, user_role="registered"):
+def register_user(name, password, user_role="admin"):
     name=str(name)
     password=str(password)
     
@@ -348,45 +348,45 @@ def add_points_to(discount, loyalty, name):
         """,(discount, loyalty,name))
     connection.commit()
 
-def add_points_to_id(discount, loyalty, user_id):
-    cursor.execute("""
-        UPDATE public."user"
-        SET discount_points = discount_points + %s,
-        loyalty_points = loyalty_points + %s
-        WHERE id = %s;
-        """,(discount, loyalty,user_id))
-    connection.commit()
+    def add_points_to_id(discount, loyalty, user_id):
+        cursor.execute("""
+            UPDATE public."user"
+            SET discount_points = discount_points + %s,
+            loyalty_points = loyalty_points + %s
+            WHERE id = %s;
+            """, (discount, loyalty, user_id))
+        connection.commit()
 
-def level_up(user_id):
-    connection.commit()
-    old_points=get_from_database("loyalty_points", "user", "id", user_id)
-    if(old_points<points_per_level):
-        return False
-    set_in_database("user", "id", user_id, "loyalty_points", old_points-points_per_level)
+    def level_up(user_id):
+        connection.commit()
+        old_points = get_from_database("loyalty_points", "user", "id", user_id)
+        if (old_points < points_per_level):
+            return False
+        set_in_database("user", "id", user_id, "loyalty_points", old_points - points_per_level)
 
-    old_lvl=get_from_database("level", "user", "id", user_id)
-    set_in_database("user", "id", user_id, "level", old_lvl+1)
-    recalculate_favourite_cap(user_id)
-    return True
+        old_lvl = get_from_database("level", "user", "id", user_id)
+        set_in_database("user", "id", user_id, "level", old_lvl + 1)
+        recalculate_favourite_cap(user_id)
+        return True
 
-def recalculate_favourite_cap(user_id):
-    old_cap = get_from_database("favourite_capacity", "user", "id", user_id)
-    connection.commit()
-    cursor.execute("""
-        UPDATE public."user"
-        SET favourite_capacity = 2 * level
-        WHERE id = %s ;
-        """,(user_id,))
-    connection.commit()
+    def recalculate_favourite_cap(user_id):
+        old_cap = get_from_database("favourite_capacity", "user", "id", user_id)
+        connection.commit()
+        cursor.execute("""
+            UPDATE public."user"
+            SET favourite_capacity = 2 * level
+            WHERE id = %s ;
+            """, (user_id,))
+        connection.commit()
 
-    new_cap = get_from_database("favourite_capacity", "user", "id", user_id)
-    diff=new_cap-old_cap
-    if(diff==0):
-        return
-    fav_free = get_from_database("favourite_free", "user", "id", user_id)
-    set_in_database("user", "id", user_id, "favourite_free", fav_free+diff)
+        new_cap = get_from_database("favourite_capacity", "user", "id", user_id)
+        diff = new_cap - old_cap
+        if (diff == 0):
+            return
+        fav_free = get_from_database("favourite_free", "user", "id", user_id)
+        set_in_database("user", "id", user_id, "favourite_free", fav_free + diff)
 
-    
+
 def login(name, password):
     name=str(name)
     password=str(password)
@@ -442,12 +442,12 @@ def change_password():
         return jsonify({'message': "no session with this user"}), 401
 
     cursor.execute('SELECT name FROM "user" WHERE id = %s', (user_id,))
-    name = cursor.fetchone()
-    
+    name = cursor.fetchone()[0]
     if not name:
         return jsonify({'message': "invalid user"}), 401
+
     name = name[0]
-    
+
     if user_type != "admin":
         if not old_password:
             return jsonify({'message': "old password is required"}), 401
@@ -568,19 +568,18 @@ def remove_user():
 @app.post("/change_preferences")
 def change_preferences():
     data = request.get_json()
-    
     token = data.get("token")
     language = data.get("language")
     darkmode = data.get("darkmode")
     high_contrast = data.get("high_contrast")
-    
+
     if not data or 'token' not in data:
         return jsonify({'message': 'Missing token'}), 400
 
     user_id = get_id(data['token'])
     if user_id is None:
         return jsonify({'message': 'Invalid or expired session'}), 401
-    
+
     # Check if preferences exist
     cursor.execute("""SELECT 1 FROM preferences WHERE user_id = %s""", (user_id,))
     if cursor.fetchone() is None:
@@ -594,7 +593,7 @@ def change_preferences():
         except Exception as e:
             print(e)
             return jsonify({'message': 'Error inserting preferences'}), 500
-    
+
     # Update only provided fields
     if language is not None:
         cursor.execute("""UPDATE preferences SET language = %s WHERE user_id = %s""", (language, user_id))
@@ -604,9 +603,9 @@ def change_preferences():
         cursor.execute("""UPDATE preferences SET high_contrast = %s WHERE user_id = %s""", (high_contrast, user_id))
 
     pref = get_from_database("id", "preferences", "user_id", user_id)
-    
+
     cursor.execute("""UPDATE "user" SET pref_id = %s WHERE id = %s""", (pref, user_id))
-    
+
     connection.commit()
 
     return jsonify({'success': True}), 200
@@ -760,7 +759,7 @@ def account_reservations():
             ORDER BY date DESC, "from" DESC
             """,(user_id,))
     result = cursor.fetchall()
-    
+    print(result)
     reservations = [
         {
             'id': row[0],
@@ -1094,6 +1093,7 @@ def try_to_logout():
     
     invalidate_user_token(token)
     return {'message': "token invalidated"}, 200
+
 
 
 @app.post("/delivery")
@@ -1459,79 +1459,256 @@ def get_filtered_dishes():
 
 @app.post("/pay")
 def pay_for_order():
-    token=request.args.get('token')
-    if(token==None):
-        return {'message':"missing token"},401
-    
-    user_id=get_id(token)
-    if(user_id==None):
-        return {'message':"no session with this user"},401
-    user_type=get_from_database("type","user","id",user_id)
-    
-    order_id=request.args.get('order_id')
-    if(find_in_database("order", "id", order_id)==None):
-        return {'message':"no such order"},404
-    
-    reservation_id=find_in_database("reservation","order_id",order_id)
-    delivery_id=find_in_database("delivery","order_id",order_id)
-    if(bool(reservation_id==None) == bool(delivery_id==None)):
+    token = request.args.get('token')
+    if (token == None):
+        return {'message': "missing token"}, 401
+
+    user_id = get_id(token)
+    if (user_id == None):
+        return {'message': "no session with this user"}, 401
+    user_type = get_from_database("type", "user", "id", user_id)
+
+    order_id = request.args.get('order_id')
+    if (find_in_database("order", "id", order_id) == None):
+        return {'message': "no such order"}, 404
+
+    reservation_id = find_in_database("reservation", "order_id", order_id)
+    delivery_id = find_in_database("delivery", "order_id", order_id)
+    if (bool(reservation_id == None) == bool(delivery_id == None)):
         return {'message': "order not tied to exact resrvation/delivery"}, 409
-    
+
     try:
-        data=json.loads(request.data)
-        data=data["body"]
+        data = json.loads(request.data)
+        data = data["body"]
     except:
         return {'message': "wrong format"}, 400
-    
-    pay_on_delivery=request.args.get('pay_on_delivery')
-    if(pay_on_delivery==None):
-        pay_on_delivery=False
+
+    pay_on_delivery = request.args.get('pay_on_delivery')
+    if (pay_on_delivery == None):
+        pay_on_delivery = False
     else:
         try:
-            pay_on_delivery=(pay_on_delivery=="true")
+            pay_on_delivery = (pay_on_delivery == "true")
         except:
             return {'message': "wrong pay_on_delivery format"}, 400
-        
-    #paying API here
-    has_paid=not pay_on_delivery
+
+    # paying API here
+    has_paid = not pay_on_delivery
     print(order_id, has_paid, pay_on_delivery)
-    if(has_paid):
+    if (has_paid):
         print("asdas")
-        #set true to paid
+        # set true to paid
         connection.commit
         cursor.execute("""
             update "order" set is_paid = true  where "id" = %s ;
-            """,(order_id,))
+            """, (order_id,))
         connection.commit()
-    elif(pay_on_delivery and user_type!="anonymous" and delivery_id!=None):
-        #set card used false
+    elif (pay_on_delivery and user_type != "anonymous" and delivery_id != None):
+        # set card used false
         cursor.execute("""
             update "order" set is_paid = false  where "id" = %s ;
-            """,(order_id,))
+            """, (order_id,))
         connection.commit()
     else:
         return {'message': "failed payment"}, 400
 
-    #set card used
-    if(delivery_id!=None):
-        set_in_database("delivery","id",delivery_id,"card_used",not pay_on_delivery)
-    
-    points = get_from_database("price","order","id",order_id)
-    points = int(float(points[1:]))+5;
-    points = int(points/2)
-    disc_points=int(points/5)
+    # set card used
+    if (delivery_id != None):
+        set_in_database("delivery", "id", delivery_id, "card_used", not pay_on_delivery)
 
-    #update the account loyalty levels if not anonymous
+    points = get_from_database("price", "order", "id", order_id)
+    points = int(float(points[1:])) + 5;
+    points = int(points / 2)
+    disc_points = int(points / 5)
+
+    # update the account loyalty levels if not anonymous
     add_points_to_id(disc_points, points, user_id)
     leveled_up = level_up(user_id)
 
     return {'message': "successful payment",
-            'leveled_up':leveled_up,
-            'obtained_points':points,
-            'disc_points':disc_points
+            'leveled_up': leveled_up,
+            'obtained_points': points,
+            'disc_points': disc_points
             }, 200
 
-    
+
+@app.get("/dish_full_info")
+def get_full_dish_info():
+    token = request.args.get('token')
+    dish_id = request.args.get('dish_id')
+    if token is None:
+        return {'message': "missing token"}, 401
+
+    user_id = get_id(token)
+    if user_id is None:
+        return {'message': "no session with this user"}, 401
+
+    cursor.execute("""
+        SELECT id, title, category, 
+               small_portion, medium_portion, large_portion, 
+               small_price, medium_price, large_price, portion_unit,
+               description, discount_base, picture
+        FROM public.dish
+        WHERE id = %s;
+    """, (dish_id,))
+
+    dishes = cursor.fetchall()
+    if not dishes:
+        return {'message': 'Dish not found'}, 404
+
+    dish_data = []
+    for dish in dishes:
+        picture_bytes = bytes(dish[12]) if dish[12] is not None else None
+        base64_pic = base64.b64encode(picture_bytes).decode('utf-8') if picture_bytes else None
+
+        dish_data.append({
+            'id': str(dish[0]),
+            'title': dish[1],
+            'category': dish[2],
+            'small_size': dish[3],
+            'medium_size': dish[4],
+            'large_size': dish[5],
+            'small_price': float(dish[6]) if dish[6] else None,
+            'medium_price': float(dish[7]) if dish[7] else None,
+            'large_price': float(dish[8]) if dish[8] else None,
+            'unit': dish[9],
+            'description': dish[10],
+            'discount_base': dish[11],
+            'pic': base64_pic
+        })
+
+    return jsonify(dish_data), 200
+
+@app.post("/add_dish")
+def add_dish():
+    data = request.get_json()
+    if not data:
+        return jsonify({"message": "Invalid data"}), 400
+
+    token = data.get('token')
+
+    if token is None:
+        return {'message': "missing token"}, 401
+
+    user_id = get_id(token)
+    if user_id is None:
+        return {'message': "no session with this user"}, 401
+
+    title = data.get("title")
+    category = data.get("category")
+    description = data.get("description")
+    unit = data.get("portion_unit")
+    disc_base = data.get("discount_base")
+
+    small = (data.get("small_portion"), data.get("small_price"))
+    medium = (data.get("medium_portion"), data.get("medium_price"))
+    large = (data.get("large_portion"), data.get("large_price"))
+
+    image_base64 = data.get("image_base64")
+    picture = base64.b64decode(image_base64) if image_base64 else None
+
+    if not add_dish_to_menu(title, category, description, unit, small, medium, large, picture):
+        return jsonify({"message": "Something went wrong during adding the dish"}), 500
+    else:
+        connection.commit()
+        return jsonify({"message": "success"}), 200
+
+@app.post("/edit_dish")
+def edit_dish():
+    data = request.get_json()
+    if not data:
+        return jsonify({"message": "Invalid data"}), 400
+
+    token = data.get('token')
+    if not token:
+        return jsonify({"message": "Missing token"}), 401
+
+    user_id = get_id(token)
+    if user_id is None:
+        return jsonify({"message": "Invalid session"}), 401
+
+    dish_id = data.get("id")
+    if not dish_id:
+        return jsonify({"message": "Missing dish ID"}), 400
+
+    # Extract fields, allowing nulls
+    title = data.get("title")
+    category = data.get("category")
+    description = data.get("description")
+    unit = data.get("portion_unit")
+    discount_base = data.get("discount_base")
+
+    small_portion = data.get("small_portion")
+    medium_portion = data.get("medium_portion")
+    large_portion = data.get("large_portion")
+
+    small_price = data.get("small_price")
+    medium_price = data.get("medium_price")
+    large_price = data.get("large_price")
+
+    image_base64 = data.get("image_base64")
+    picture = base64.b64decode(image_base64) if image_base64 else None
+
+    try:
+        # Build and execute SQL UPDATE
+        update_sql = """
+            UPDATE dish SET
+                title = %s,
+                category = %s,
+                description = %s,
+                portion_unit = %s,
+                discount_base = %s,
+                small_portion = %s,
+                medium_portion = %s,
+                large_portion = %s,
+                small_price = %s,
+                medium_price = %s,
+                large_price = %s,
+                picture = %s
+            WHERE id = %s
+        """
+        values = (
+            title, category, description, unit, discount_base,
+            small_portion, medium_portion, large_portion,
+            small_price, medium_price, large_price,
+            picture, dish_id
+        )
+        cursor.execute(update_sql, values)
+        connection.commit()
+
+        return jsonify({"message": "Dish updated successfully"}), 200
+
+    except Exception as e:
+        connection.rollback()
+        print("Error updating dish:", e)
+        return jsonify({"message": "Internal server error"}), 500
+
+
+@app.post("/todays_special")
+def todays_special():
+    data = request.get_json()
+    if not data:
+        return jsonify({"message": "Invalid data"}), 400
+
+    token = data.get('token')
+
+    if token is None:
+        return {'message': "missing token"}, 401
+
+    user_id = get_id(token)
+    if user_id is None:
+        return {'message': "no session with this user"}, 401
+
+    dish= data.get("special")
+
+    if not dish:
+        return jsonify({"error": "No dish provided"}), 400
+
+    if not set_today_special(dish):
+        return jsonify({"message": "Something went wrong during setting the dish as special"}), 500
+    else:
+        return jsonify({"message": "success"}), 200
+
 #---------
 order1={
     "items": [
