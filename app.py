@@ -833,32 +833,35 @@ def add_discount_option(effectivness, cost):
         return False
     return True
 
-def add_dish_to_menu(title,category, small,medium,large,unit,description,disc_base,pic):
-    if(small==None):
-        small=(None,None)
-    if(medium==None):
-        medium=(None,None)
-    if(large==None):
-        large=(None,None)
+def add_dish_to_menu(title, category, description, unit, small, medium, large, disc_base, picture):
+    # Normalize empty tuples
+    small = small if small else (None, None)
+    medium = medium if medium else (None, None)
+    large = large if large else (None, None)
+
     try:
         cursor.execute("""
             INSERT INTO public.dish(
-            id, title, category,
-            small_portion, medium_portion, large_portion, 
-            small_price, medium_price, large_price, portion_unit, 
-            description, discount_base, picture)
+                id, title, category,
+                small_portion, medium_portion, large_portion,
+                small_price, medium_price, large_price, portion_unit,
+                description, discount_base, picture)
             VALUES (gen_random_uuid(), %s, %s,
-            %s, %s, %s, 
-            %s, %s, %s, %s,
-            %s, %s, %s);
-            """,(title,category,
-                 small[0],medium[0],large[0],
-                 small[1],medium[1],large[1],unit,
-                 description, disc_base, pic))
+                %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s, %s);
+        """, (
+            title, category,
+            small[0], medium[0], large[0],
+            small[1], medium[1], large[1], unit,
+            description, disc_base, picture
+        ))
         connection.commit()
-    except:
+        return True
+    except Exception as e:
+        print("Add dish error:", e)
         return False
-    return True
+
 
 def set_today_special(dish_name):
     cursor.execute("""
@@ -1054,13 +1057,12 @@ print("making discounts")
 print(add_discount_option(0.10, 100))
 print(add_discount_option(0.15, 140))
 print(add_discount_option(0.20, 175))
+
 print("adding dishes")
-print(add_dish_to_menu("vodka","drink",(300,2.65),(540,3.79),None,
-                       "ml","velmi dobra",0.2,None))
-print(add_dish_to_menu("zemiaky","hlavne",(140,1.05),(240,1.79),(360,2.50),
-                       "g","chutne",0.1,None))
-print(add_dish_to_menu("vyvar","polievka",(200,1.30),(300,1.69),None,
-                       "g","domaca",0.1,None))
+print(add_dish_to_menu("vodka", "drink", "velmi dobra", "ml", (300, 2.65), (540, 3.79), None, 0.2, None))
+print(add_dish_to_menu("zemiaky", "hlavne", "chutne", "g", (140, 1.05), (240, 1.79), (360, 2.50), 0.1, None))
+print(add_dish_to_menu("vyvar", "polievka", "domaca", "g", (200, 1.30), (300, 1.69), None, 0.1, None))
+
 print("setting special")
 set_today_special("vodka")
 bind_image_to_dish("DB.png","zemiaky")
@@ -1317,10 +1319,9 @@ def make_reservation():
         WHERE id = %s;
         """, (order_id,))
     connection.commit()
-        
 
-   #add reservation
-    chosen_table=random.randint(0, 10)
+    # add reservation
+    chosen_table = random.randint(0, 10)
     cursor.execute("""
         INSERT INTO public.reservation(
         id, order_id, date, "from",
@@ -1329,7 +1330,8 @@ def make_reservation():
         %s, %s, %s, NULL) RETURNING id;
         """, (order_id, dtime[0], dtime[1], dtime[2], people, chosen_table))
     connection.commit()
-    res_id=cursor.fetchone()
+
+    res_id = cursor.fetchone()
     if(res_id!=None):
         res_id=res_id[0]
 
@@ -1344,7 +1346,7 @@ def make_reservation():
         'QR_code': None,
         }
     socketio.emit('reservation_update', data2)
-	
+
     return {'message': "reservation order successful",
             'order id':order_id,
             'price': get_from_database('price','order','id',order_id)
@@ -1616,37 +1618,54 @@ def get_full_dish_info():
 
 @app.post("/add_dish")
 def add_dish():
-    data = request.get_json()
-    if not data:
-        return jsonify({"message": "Invalid data"}), 400
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"message": "Invalid data"}), 400
 
-    token = data.get('token')
+        token = data.get('token')
+        if not token:
+            return jsonify({"message": "Missing token"}), 401
 
-    if token is None:
-        return {'message': "missing token"}, 401
+        user_id = get_id(token)
+        if user_id is None:
+            return jsonify({"message": "Invalid session"}), 401
 
-    user_id = get_id(token)
-    if user_id is None:
-        return {'message': "no session with this user"}, 401
+        title = data.get("title")
+        category = data.get("category")
+        description = data.get("description")
+        unit = data.get("portion_unit")
+        disc_base = data.get("discount_base")
 
-    title = data.get("title")
-    category = data.get("category")
-    description = data.get("description")
-    unit = data.get("portion_unit")
-    disc_base = data.get("discount_base")
+        small = (data.get("small_portion"), data.get("small_price"))
+        medium = (data.get("medium_portion"), data.get("medium_price"))
+        large = (data.get("large_portion"), data.get("large_price"))
 
-    small = (data.get("small_portion"), data.get("small_price"))
-    medium = (data.get("medium_portion"), data.get("medium_price"))
-    large = (data.get("large_portion"), data.get("large_price"))
+        # Handle base64 image with MIME header
+        image_base64 = data.get("image_base64")
+        picture = None
 
-    image_base64 = data.get("image_base64")
-    picture = base64.b64decode(image_base64) if image_base64 else None
+        if image_base64:
+            try:
+                header, encoded = image_base64.split(",", 1)
+                mime_type = header.split(":")[1].split(";")[0]
+                if mime_type not in ['image/jpeg', 'image/png']:
+                    raise ValueError("Only JPEG and PNG images are supported")
+                picture = base64.b64decode(encoded)
+            except Exception as e:
+                print("Image decode error:", e)
+                return jsonify({"message": "Invalid image format"}), 400
 
-    if not add_dish_to_menu(title, category, description, unit, small, medium, large, picture):
-        return jsonify({"message": "Something went wrong during adding the dish"}), 500
-    else:
-        connection.commit()
-        return jsonify({"message": "success"}), 200
+        success = add_dish_to_menu(title, category, description, unit, small, medium, large, disc_base, picture)
+
+        if not success:
+            return jsonify({"message": "Failed to add dish"}), 500
+
+        return jsonify({"message": "Dish added successfully"}), 200
+
+    except Exception as e:
+        print("Unexpected add_dish error:", e)
+        return jsonify({"message": "Internal server error"}), 500
 
 
 @app.post("/edit_dish")
@@ -1690,7 +1709,7 @@ def edit_dish():
 
                 picture = base64.b64decode(encoded)
             except Exception as e:
-                raise ValueError(f"Invalid image data: {str(e)}")
+                picture = None
 
         # Build dynamic update query
         update_fields = []
@@ -1770,6 +1789,55 @@ def edit_dish():
         return jsonify({"message": "Internal server error"}), 500
 
 
+@app.post("/delete_dish")
+def delete_dish_from_menu():
+    @app.post("/delete_dish")
+    def delete_dish_from_menu():
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({"message": "Invalid data"}), 400
+
+            # Authentication and validation
+            token = data.get('token')
+            if not token:
+                return jsonify({"message": "Missing token"}), 401
+
+            user_id = get_id(token)
+            if user_id is None:
+                return jsonify({"message": "Invalid session"}), 401
+
+            dish_id = data.get("id")
+            if not dish_id:
+                return jsonify({"message": "Missing dish ID"}), 400
+
+            # Check if the dish is part of any order
+            cursor.execute("SELECT COUNT(*) FROM order_item WHERE dish_id = %s;", (dish_id,))
+            order_count = cursor.fetchone()[0]
+            if order_count > 0:
+                return jsonify({"message": "This dish is part of an existing order and cannot be deleted."}), 400
+
+            # Delete dish from today's special if it exists there
+            cursor.execute("DELETE FROM special WHERE dish_id = %s;", (dish_id,))
+
+            # Delete dish from favourites table
+            cursor.execute("DELETE FROM favourites WHERE dish_id = %s;", (dish_id,))
+
+            # Delete dish from the dish table
+            cursor.execute("DELETE FROM dish WHERE id = %s RETURNING id;", (dish_id,))
+            deleted = cursor.fetchone()
+            if not deleted:
+                return jsonify({"message": "Dish not found"}), 404
+
+            connection.commit()
+            return jsonify({"message": "Dish deleted successfully"}), 200
+
+        except Exception as e:
+            connection.rollback()
+            print(f"Error deleting dish: {str(e)}")
+            return jsonify({"message": "Internal server error"}), 500
+
+
 @app.post("/todays_special")
 def todays_special():
     data = request.get_json()
@@ -1795,27 +1863,29 @@ def todays_special():
     else:
         return jsonify({"message": "success"}), 200
 
-#--------------sockets
+
+# --------------sockets
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
-
 
 CORS(app)
 
 socketio = SocketIO(app, cors_allowed_origins="*")
 reservations = []
 
+
 @app.route('/create_reservation', methods=['POST'])
 def create_reservation():
-    
     data = request.json
     reservations.append(data)
     socketio.emit('reservation_update', data)
     return jsonify({"status": "success"}), 201
 
+
 @socketio.on('connect')
 def handle_connect():
     print("Client connected")
+
 
 #---------
 order1={
@@ -1837,6 +1907,7 @@ if(str_server_address==''):
 str_address, port = str_server_address.split(":")
 port=int(port)
 
+
 import signal
 import sys
 
@@ -1848,5 +1919,3 @@ signal.signal(signal.SIGINT, handle_exit)  # Handle Ctrl+C
 
 if __name__ == '__main__':
     socketio.run(app, host=str_address, port=port, debug=True, use_reloader=False)
-
-
