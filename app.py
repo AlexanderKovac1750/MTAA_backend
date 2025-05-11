@@ -12,8 +12,8 @@ points_per_level=100
 connection=psycopg2.connect(
     host="localhost",
     database="MTAA",
-    user="Guest",
-    password="345f"
+    user="postgres",
+    password="123"
     )
 cursor = connection.cursor()
 def find_in_database(table, column, value):
@@ -1791,51 +1791,49 @@ def edit_dish():
 
 @app.post("/delete_dish")
 def delete_dish_from_menu():
-    @app.post("/delete_dish")
-    def delete_dish_from_menu():
-        try:
-            data = request.get_json()
-            if not data:
-                return jsonify({"message": "Invalid data"}), 400
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"message": "Invalid data"}), 400
 
-            # Authentication and validation
-            token = data.get('token')
-            if not token:
-                return jsonify({"message": "Missing token"}), 401
+        # Authentication and validation
+        token = data.get('token')
+        if not token:
+            return jsonify({"message": "Missing token"}), 401
 
-            user_id = get_id(token)
-            if user_id is None:
-                return jsonify({"message": "Invalid session"}), 401
+        user_id = get_id(token)
+        if user_id is None:
+            return jsonify({"message": "Invalid session"}), 401
 
-            dish_id = data.get("id")
-            if not dish_id:
-                return jsonify({"message": "Missing dish ID"}), 400
+        dish_id = data.get("id")
+        if not dish_id:
+            return jsonify({"message": "Missing dish ID"}), 400
 
-            # Check if the dish is part of any order
-            cursor.execute("SELECT COUNT(*) FROM order_item WHERE dish_id = %s;", (dish_id,))
-            order_count = cursor.fetchone()[0]
-            if order_count > 0:
-                return jsonify({"message": "This dish is part of an existing order and cannot be deleted."}), 400
+        # Check if the dish is part of any order
+        cursor.execute("SELECT COUNT(*) FROM order_item WHERE dish_id = %s;", (dish_id,))
+        order_count = cursor.fetchone()[0]
+        if order_count > 0:
+            return jsonify({"message": "This dish is part of an existing order and cannot be deleted."}), 400
 
-            # Delete dish from today's special if it exists there
-            cursor.execute("DELETE FROM special WHERE dish_id = %s;", (dish_id,))
+        # Delete dish from today's special if it exists there
+        cursor.execute("DELETE FROM special WHERE dish_id = %s;", (dish_id,))
 
-            # Delete dish from favourites table
-            cursor.execute("DELETE FROM favourites WHERE dish_id = %s;", (dish_id,))
+        # Delete dish from favourites table
+        cursor.execute("DELETE FROM favourites WHERE dish_id = %s;", (dish_id,))
 
-            # Delete dish from the dish table
-            cursor.execute("DELETE FROM dish WHERE id = %s RETURNING id;", (dish_id,))
-            deleted = cursor.fetchone()
-            if not deleted:
-                return jsonify({"message": "Dish not found"}), 404
+        # Delete dish from the dish table
+        cursor.execute("DELETE FROM dish WHERE id = %s RETURNING id;", (dish_id,))
+        deleted = cursor.fetchone()
+        if not deleted:
+            return jsonify({"message": "Dish not found"}), 404
 
-            connection.commit()
-            return jsonify({"message": "Dish deleted successfully"}), 200
+        connection.commit()
+        return jsonify({"message": "Dish deleted successfully"}), 200
 
-        except Exception as e:
-            connection.rollback()
-            print(f"Error deleting dish: {str(e)}")
-            return jsonify({"message": "Internal server error"}), 500
+    except Exception as e:
+        connection.rollback()
+        print(f"Error deleting dish: {str(e)}")
+        return jsonify({"message": "Internal server error"}), 500
 
 
 @app.post("/todays_special")
