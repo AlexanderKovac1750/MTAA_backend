@@ -8,6 +8,7 @@ import json
 
 app = Flask(__name__)
 
+points_per_level=100
 connection=psycopg2.connect(
     host="localhost",
     database="MTAA",
@@ -38,6 +39,7 @@ def get_from_database(target, table, column, value):
     return res_id[0]
 
 def set_in_database(table, column, value, in_column, in_value):
+    connection.commit()
     cursor.execute(f"""
         UPDATE public."{table}" 
         SET "{in_column}"= %s
@@ -50,31 +52,31 @@ def set_in_database(table, column, value, in_column, in_value):
         return None
     return res_id[0]
 
-@app.get("/store")
-def get_stores():
-    cursor.execute("""
-        SELECT table_name 
-        FROM information_schema.tables
-        WHERE table_schema = 'public'  -- Change if you're using a different schema
-        ORDER BY table_name;
-    """)
-    tables=cursor.fetchall()
-    return {"stores": tables}
+#@app.get("/store")
+#def get_stores():
+#    cursor.execute("""
+#        SELECT table_name 
+#        FROM information_schema.tables
+#        WHERE table_schema = 'public'  -- Change if you're using a different schema
+#        ORDER BY table_name;
+#    """)
+#    tables=cursor.fetchall()
+#    return {"stores": tables}
 
 
-@app.put("/preferences")
-def change_settings():
-    setting = request.args.get('setting')
-    val = request.args.get('val')
-    cursor.execute("""
-        SELECT table_name 
-        FROM information_schema.tables
-        WHERE table_schema = 'public'  -- Change if you're using a different schema
-        ORDER BY table_name;
-    """)
-    tables=cursor.fetchall()
-    print(f"changed {setting} to {val}")
-    return {"stores": tables}
+#@app.put("/preferences")
+#def change_settings():
+#    setting = request.args.get('setting')
+#    val = request.args.get('val')
+#    cursor.execute("""
+#        SELECT table_name 
+#        FROM information_schema.tables
+#        WHERE table_schema = 'public'  -- Change if you're using a different schema
+#        ORDER BY table_name;
+#    """)
+#    tables=cursor.fetchall()
+#    print(f"changed {setting} to {val}")
+#    return {"stores": tables}
 
 #---------------
 def delete_DB():
@@ -345,6 +347,45 @@ def add_points_to(discount, loyalty, name):
         WHERE name = %s;
         """,(discount, loyalty,name))
     connection.commit()
+
+def add_points_to_id(discount, loyalty, user_id):
+    cursor.execute("""
+        UPDATE public."user"
+        SET discount_points = discount_points + %s,
+        loyalty_points = loyalty_points + %s
+        WHERE id = %s;
+        """,(discount, loyalty,user_id))
+    connection.commit()
+
+def level_up(user_id):
+    connection.commit()
+    old_points=get_from_database("loyalty_points", "user", "id", user_id)
+    if(old_points<points_per_level):
+        return False
+    set_in_database("user", "id", user_id, "loyalty_points", old_points-points_per_level)
+
+    old_lvl=get_from_database("level", "user", "id", user_id)
+    set_in_database("user", "id", user_id, "level", old_lvl+1)
+    recalculate_favourite_cap(user_id)
+    return True
+
+def recalculate_favourite_cap(user_id):
+    old_cap = get_from_database("favourite_capacity", "user", "id", user_id)
+    connection.commit()
+    cursor.execute("""
+        UPDATE public."user"
+        SET favourite_capacity = 2 * level
+        WHERE id = %s ;
+        """,(user_id,))
+    connection.commit()
+
+    new_cap = get_from_database("favourite_capacity", "user", "id", user_id)
+    diff=new_cap-old_cap
+    if(diff==0):
+        return
+    fav_free = get_from_database("favourite_free", "user", "id", user_id)
+    set_in_database("user", "id", user_id, "favourite_free", fav_free+diff)
+
     
 def login(name, password):
     name=str(name)
@@ -847,6 +888,7 @@ def add_order(user_id, items, comment, discount):
                 """,(user_id, comment,0.0,
                 discount, None, None))
             order_id=cursor.fetchone()[0]
+            connection.commit()
             return order_id
         except:
             connection.commit()
@@ -897,6 +939,7 @@ def add_order(user_id, items, comment, discount):
             FROM public.dish AS dish WHERE dish.id=dish_id
             AND %s <= items.id and items.id <= %s;
             """,(order_start, order_end,))
+        connection.commit()
     except:
         print("failed to calculate price of order items")
         return None
@@ -949,6 +992,7 @@ def add_order(user_id, items, comment, discount):
             """,(user_id, comment,total_price,
             discount, order_start, order_end))
         order_id=cursor.fetchone()[0]
+        connection.commit()
     except:
         connection.commit()
         return None
@@ -989,6 +1033,7 @@ init_DB()
 register_user("Peter", 123)
 add_points_to(140, 75, "Peter")
 register_user("Karol", "456")
+register_user("anon", "anon","anonymous")
 print("trying logging in")
 print(login("aa",56))
 print(login("Peter",56))
@@ -1410,6 +1455,81 @@ def get_filtered_dishes():
 
     return {'message':f"""returning valid dishes, from {offset} to {offset+limit}""",
             'dishes':formatted_dishes},200
+
+
+@app.post("/pay")
+def pay_for_order():
+    token=request.args.get('token')
+    if(token==None):
+        return {'message':"missing token"},401
+    
+    user_id=get_id(token)
+    if(user_id==None):
+        return {'message':"no session with this user"},401
+    user_type=get_from_database("type","user","id",user_id)
+    
+    order_id=request.args.get('order_id')
+    if(find_in_database("order", "id", order_id)==None):
+        return {'message':"no such order"},404
+    
+    reservation_id=find_in_database("reservation","order_id",order_id)
+    delivery_id=find_in_database("delivery","order_id",order_id)
+    if(bool(reservation_id==None) == bool(delivery_id==None)):
+        return {'message': "order not tied to exact resrvation/delivery"}, 409
+    
+    try:
+        data=json.loads(request.data)
+        data=data["body"]
+    except:
+        return {'message': "wrong format"}, 400
+    
+    pay_on_delivery=request.args.get('pay_on_delivery')
+    if(pay_on_delivery==None):
+        pay_on_delivery=False
+    else:
+        try:
+            pay_on_delivery=(pay_on_delivery=="true")
+        except:
+            return {'message': "wrong pay_on_delivery format"}, 400
+        
+    #paying API here
+    has_paid=not pay_on_delivery
+    print(order_id, has_paid, pay_on_delivery)
+    if(has_paid):
+        print("asdas")
+        #set true to paid
+        connection.commit
+        cursor.execute("""
+            update "order" set is_paid = true  where "id" = %s ;
+            """,(order_id,))
+        connection.commit()
+    elif(pay_on_delivery and user_type!="anonymous" and delivery_id!=None):
+        #set card used false
+        cursor.execute("""
+            update "order" set is_paid = false  where "id" = %s ;
+            """,(order_id,))
+        connection.commit()
+    else:
+        return {'message': "failed payment"}, 400
+
+    #set card used
+    if(delivery_id!=None):
+        set_in_database("delivery","id",delivery_id,"card_used",not pay_on_delivery)
+    
+    points = get_from_database("price","order","id",order_id)
+    points = int(float(points[1:]))+5;
+    points = int(points/2)
+    disc_points=int(points/5)
+
+    #update the account loyalty levels if not anonymous
+    add_points_to_id(disc_points, points, user_id)
+    leveled_up = level_up(user_id)
+
+    return {'message': "successful payment",
+            'leveled_up':leveled_up,
+            'obtained_points':points,
+            'disc_points':disc_points
+            }, 200
 
     
 #---------
