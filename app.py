@@ -310,7 +310,7 @@ def invalidate_user_token(token):
         return None
     return res[0]
 
-def register_user(name, password, user_role="admin"):
+def register_user(name, password, user_role="registered"):
     name=str(name)
     password=str(password)
     
@@ -1045,6 +1045,7 @@ register_user("Peter", 123)
 add_points_to(140, 75, "Peter")
 register_user("Karol", "456")
 register_user("anon", "anon","anonymous")
+register_user("admin", "admin","admin")
 print("trying logging in")
 print(login("aa",56))
 print(login("Peter",56))
