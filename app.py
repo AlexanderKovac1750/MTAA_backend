@@ -15,8 +15,8 @@ search_result_limit=40
 connection=psycopg2.connect(
     host="localhost",
     database="MTAA",
-    user="postgres",
-    password="123"
+    user="Guest",
+    password="345f"
     )
 cursor = connection.cursor()
 def find_in_database(table, column, value):
@@ -351,7 +351,6 @@ def register_user(name, password, user_role="registered"):
             """, (name, pass_hash, salt, user_role))
         connection.commit()
     except:
-        connection.commit()
         return None
     return True
 
@@ -1045,6 +1044,13 @@ def bind_data_to_dish(data, dish):
     set_in_database("dish","id",dish_id,"picture",data)
     connection.commit()
 
+def order_exists(order_id: str, user_id: str) -> bool:
+    cursor.execute("""
+        SELECT 1 FROM "order" 
+        WHERE id = %s AND "user" = %s
+    """, (order_id, user_id))
+    return cursor.fetchone() is not None
+
 #------------
 clear_DB()
 delete_DB()
@@ -1099,11 +1105,8 @@ def try_to_register():
     if(res==None):
         res = register_user(name,password)
     if(res == True):
-        token = get_user_token(name)
         return {'message':"registration successful",
-                'token': token,
-                'type':get_from_database('type', 'user', 'token',token)
-                }, 201
+                'token': get_user_token(name)}, 201
     elif(res==None):
         return {'message':"something went wrong, try again"},500
     else:
@@ -1119,6 +1122,56 @@ def try_to_logout():
     return {'message': "token invalidated"}, 200
 
 
+@app.post("/order")
+def create_order():
+    token = request.args.get('token')
+    if not token:
+        return {'message': "missing token"}, 401
+
+    user_id = get_id(token)
+    if not user_id:
+        return {'message': "no session with this user"}, 401
+
+    try:
+        data = request.get_json().get("body", {})
+    except:
+        return {'message': "invalid request format"}, 400
+
+    # Extract order details
+    comment = data.get("comment", "")
+    items = data.get("items", [])
+
+    # Convert items to backend format
+    formatted_items = []
+    for item in items:
+        dish_id = find_in_database("dish", "title", item.get("name"))
+        if not dish_id:
+            return {'message': f"Dish not found: {item.get('name')}"}, 404
+
+        portion_map = {
+            "small": 1,
+            "medium": 2,
+            "large": 3
+        }
+        formatted_items.append((
+            dish_id,
+            portion_map.get(item.get("size"), 1),
+            item.get("count", 1)
+        ))
+
+    # Create order with null discount
+    order_id = add_order(user_id, formatted_items, comment, None)
+
+    if isinstance(order_id, tuple):
+        return {'message': order_id[0]}, 400
+    if not order_id:
+        return {'message': "order creation failed"}, 500
+
+    return jsonify({
+        'message': "Order created successfully",
+        'order_id': order_id,
+        'total_price': get_from_database('price', 'order', 'id', order_id)
+    }), 200
 
 @app.post("/delivery")
 def delivery():
@@ -1130,11 +1183,11 @@ def delivery():
     if (user_id == None):
         return {'message': "no session with this user"}, 401
 
-    try:
-        data=json.loads(request.data)
-        data=data["body"]
-    except:
-        return {'message':"wrong format"}, 400
+    data = request.get_json()
+    order_id = data.get('order_id')
+
+    if not order_exists(order_id, user_id):
+        return {'message': "invalid order"}, 400
 
     try:
         address=[0,0,0]
@@ -1225,11 +1278,11 @@ def make_reservation():
     if (user_id == None):
         return {'message': "no session with this user"}, 401
 
-    try:
-        data=json.loads(request.data)
-        data=data["body"]
-    except:
-        return {'message': "wrong format"}, 400
+    data = request.get_json()
+    order_id = data.get('order_id')
+
+    if not order_exists(order_id, user_id):
+        return {'message': "invalid order"}, 400
 
     try:
         dtime=[0,0,0]
@@ -1578,10 +1631,8 @@ def pay_for_order():
     disc_points = int(points / 5)
 
     # update the account loyalty levels if not anonymous
-    leveled_up=False
-    if(user_type != "anonymous"):
-        add_points_to_id(disc_points, points, user_id)
-        leveled_up = level_up(user_id)
+    add_points_to_id(disc_points, points, user_id)
+    leveled_up = level_up(user_id)
 
     return {'message': "successful payment",
             'leveled_up': leveled_up,
@@ -1909,19 +1960,6 @@ def todays_special():
     else:
         return jsonify({"message": "success"}), 200
 
-@app.post("/anonymous")
-def make_anonymous():
-    random_name= "_ANONYMOUS_"+str(random.randrange(0,10000))
-    random_name+="_"+str(random.randrange(0,10000))
-    random_pass= "_RANPASS_"+str(random.randrange(0,10000))
-    random_pass+="_"+str(random.randrange(0,10000))
-
-    if(register_user(random_name, random_pass, "anonymous")):
-        return {'message':"success",
-                'name':random_name,
-                'password':random_pass}, 200
-    else:
-        return {'message':"failed to create anonymous account"},500
 
 # --------------sockets
 from flask_socketio import SocketIO, emit
