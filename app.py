@@ -348,44 +348,44 @@ def add_points_to(discount, loyalty, name):
         """,(discount, loyalty,name))
     connection.commit()
 
-    def add_points_to_id(discount, loyalty, user_id):
-        cursor.execute("""
-            UPDATE public."user"
-            SET discount_points = discount_points + %s,
-            loyalty_points = loyalty_points + %s
-            WHERE id = %s;
-            """, (discount, loyalty, user_id))
-        connection.commit()
+def add_points_to_id(discount, loyalty, user_id):
+    cursor.execute("""
+        UPDATE public."user"
+        SET discount_points = discount_points + %s,
+        loyalty_points = loyalty_points + %s
+        WHERE id = %s;
+        """, (discount, loyalty, user_id))
+    connection.commit()
 
-    def level_up(user_id):
-        connection.commit()
-        old_points = get_from_database("loyalty_points", "user", "id", user_id)
-        if (old_points < points_per_level):
-            return False
-        set_in_database("user", "id", user_id, "loyalty_points", old_points - points_per_level)
+def level_up(user_id):
+    connection.commit()
+    old_points=get_from_database("loyalty_points", "user", "id", user_id)
+    if(old_points<points_per_level):
+        return False
+    set_in_database("user", "id", user_id, "loyalty_points", old_points-points_per_level)
 
-        old_lvl = get_from_database("level", "user", "id", user_id)
-        set_in_database("user", "id", user_id, "level", old_lvl + 1)
-        recalculate_favourite_cap(user_id)
-        return True
+    old_lvl=get_from_database("level", "user", "id", user_id)
+    set_in_database("user", "id", user_id, "level", old_lvl+1)
+    recalculate_favourite_cap(user_id)
+    return True
 
-    def recalculate_favourite_cap(user_id):
-        old_cap = get_from_database("favourite_capacity", "user", "id", user_id)
-        connection.commit()
-        cursor.execute("""
-            UPDATE public."user"
-            SET favourite_capacity = 2 * level
-            WHERE id = %s ;
-            """, (user_id,))
-        connection.commit()
 
-        new_cap = get_from_database("favourite_capacity", "user", "id", user_id)
-        diff = new_cap - old_cap
-        if (diff == 0):
-            return
-        fav_free = get_from_database("favourite_free", "user", "id", user_id)
-        set_in_database("user", "id", user_id, "favourite_free", fav_free + diff)
+def recalculate_favourite_cap(user_id):
+    old_cap = get_from_database("favourite_capacity", "user", "id", user_id)
+    connection.commit()
+    cursor.execute("""
+        UPDATE public."user"
+        SET favourite_capacity = 2 * level
+        WHERE id = %s ;
+        """,(user_id,))
+    connection.commit()
 
+    new_cap = get_from_database("favourite_capacity", "user", "id", user_id)
+    diff=new_cap-old_cap
+    if(diff==0):
+        return
+    fav_free = get_from_database("favourite_free", "user", "id", user_id)
+    set_in_database("user", "id", user_id, "favourite_free", fav_free+diff)
 
 def login(name, password):
     name=str(name)
@@ -1516,6 +1516,7 @@ def pay_for_order():
     if (delivery_id != None):
         set_in_database("delivery", "id", delivery_id, "card_used", not pay_on_delivery)
 
+    # update the account loyalty levels if not anonymous
     points = get_from_database("price", "order", "id", order_id)
     points = int(float(points[1:])) + 5;
     points = int(points / 2)
