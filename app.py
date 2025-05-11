@@ -462,7 +462,6 @@ def change_password():
     if not name:
         return jsonify({'message': "invalid user"}), 401
 
-    name = name[0]
 
     if user_type != "admin":
         if not old_password:
