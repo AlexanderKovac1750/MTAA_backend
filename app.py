@@ -52,6 +52,18 @@ def set_in_database(table, column, value, in_column, in_value):
         return None
     return res_id[0]
 
+import re
+
+def parse_price(price_str):
+    if not price_str:
+        return None
+    # Remove all non-numeric characters except '.' (for decimals)
+    cleaned = re.sub(r"[^\d.]", "", price_str)
+    try:
+        return float(cleaned) if cleaned else None
+    except ValueError:
+        return None
+
 # @app.get("/store")
 #def get_stores():
 #    cursor.execute("""
@@ -1557,28 +1569,32 @@ def get_full_dish_info():
     if not dishes:
         return {'message': 'Dish not found'}, 404
 
-    dish_data = []
-    for dish in dishes:
-        picture_bytes = bytes(dish[12]) if dish[12] is not None else None
-        base64_pic = base64.b64encode(picture_bytes).decode('utf-8') if picture_bytes else None
+    # Debug: column count
+    print("Columns returned:", len(dishes[0]))  # Should be 13
 
-        dish_data.append({
-            'id': str(dish[0]),
-            'title': dish[1],
-            'category': dish[2],
-            'small_size': dish[3],
-            'medium_size': dish[4],
-            'large_size': dish[5],
-            'small_price': float(dish[6]) if dish[6] else None,
-            'medium_price': float(dish[7]) if dish[7] else None,
-            'large_price': float(dish[8]) if dish[8] else None,
-            'unit': dish[9],
-            'description': dish[10],
-            'discount_base': dish[11],
-            'pic': base64_pic
-        })
+    # Extract the first (and only) dish from the result
+    dish = dishes[0]
 
-    return jsonify(dish_data), 200
+    # Handle picture
+    picture_bytes = bytes(dish[12]) if dish[12] is not None else None
+    base64_pic = base64.b64encode(picture_bytes).decode('utf-8') if picture_bytes else None
+
+    return jsonify({
+        'id': str(dish[0]),
+        'title': dish[1],
+        'category': dish[2],
+        'small_portion': dish[3],
+        'medium_portion': dish[4],
+        'large_portion': dish[5],
+        'small_price': parse_price(dish[6]) if dish[6] else None,
+        'medium_price': parse_price(dish[7]) if dish[7] else None,
+        'large_price': parse_price(dish[8]) if dish[8] else None,
+        'unit': dish[9],
+        'description': dish[10],
+        'discount_base': float(dish[11]) if dish[11] else None,
+        'pic': base64_pic
+    }), 200
+
 
 @app.post("/add_dish")
 def add_dish():
@@ -1634,8 +1650,8 @@ def edit_dish():
 
     # Extract fields, allowing nulls
     title = data.get("title")
-    category = data.get("category")
     description = data.get("description")
+    category = data.get("category")
     unit = data.get("portion_unit")
     discount_base = data.get("discount_base")
 
