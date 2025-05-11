@@ -1045,13 +1045,6 @@ def bind_data_to_dish(data, dish):
     set_in_database("dish","id",dish_id,"picture",data)
     connection.commit()
 
-def order_exists(order_id: str, user_id: str) -> bool:
-    cursor.execute("""
-        SELECT 1 FROM "order" 
-        WHERE id = %s AND "user" = %s
-    """, (order_id, user_id))
-    return cursor.fetchone() is not None
-
 #------------
 clear_DB()
 delete_DB()
@@ -1126,56 +1119,6 @@ def try_to_logout():
     return {'message': "token invalidated"}, 200
 
 
-@app.post("/order")
-def create_order():
-    token = request.args.get('token')
-    if not token:
-        return {'message': "missing token"}, 401
-
-    user_id = get_id(token)
-    if not user_id:
-        return {'message': "no session with this user"}, 401
-
-    try:
-        data = request.get_json().get("body", {})
-    except:
-        return {'message': "invalid request format"}, 400
-
-    # Extract order details
-    comment = data.get("comment", "")
-    items = data.get("items", [])
-
-    # Convert items to backend format
-    formatted_items = []
-    for item in items:
-        dish_id = find_in_database("dish", "title", item.get("name"))
-        if not dish_id:
-            return {'message': f"Dish not found: {item.get('name')}"}, 404
-
-        portion_map = {
-            "small": 1,
-            "medium": 2,
-            "large": 3
-        }
-        formatted_items.append((
-            dish_id,
-            portion_map.get(item.get("size"), 1),
-            item.get("count", 1)
-        ))
-
-    # Create order with null discount
-    order_id = add_order(user_id, formatted_items, comment, None)
-
-    if isinstance(order_id, tuple):
-        return {'message': order_id[0]}, 400
-    if not order_id:
-        return {'message': "order creation failed"}, 500
-
-    return jsonify({
-        'message': "Order created successfully",
-        'order_id': order_id,
-        'total_price': get_from_database('price', 'order', 'id', order_id)
-    }), 200
 
 @app.post("/delivery")
 def delivery():
@@ -1187,11 +1130,11 @@ def delivery():
     if (user_id == None):
         return {'message': "no session with this user"}, 401
 
-    data = request.get_json()
-    order_id = data.get('order_id')
-
-    if not order_exists(order_id, user_id):
-        return {'message': "invalid order"}, 400
+    try:
+        data=json.loads(request.data)
+        data=data["body"]
+    except:
+        return {'message':"wrong format"}, 400
 
     try:
         address=[0,0,0]
@@ -1282,11 +1225,11 @@ def make_reservation():
     if (user_id == None):
         return {'message': "no session with this user"}, 401
 
-    data = request.get_json()
-    order_id = data.get('order_id')
-
-    if not order_exists(order_id, user_id):
-        return {'message': "invalid order"}, 400
+    try:
+        data=json.loads(request.data)
+        data=data["body"]
+    except:
+        return {'message': "wrong format"}, 400
 
     try:
         dtime=[0,0,0]
