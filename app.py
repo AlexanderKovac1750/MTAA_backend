@@ -9,6 +9,8 @@ import base64
 app = Flask(__name__)
 
 points_per_level=100
+reservation_fee=1.50
+
 connection=psycopg2.connect(
     host="localhost",
     database="MTAA",
@@ -1315,9 +1317,9 @@ def make_reservation():
 
     cursor.execute("""
         UPDATE public."order"
-        SET price = price + '$1.50'
+        SET price = price + '%s'
         WHERE id = %s;
-        """, (order_id,))
+        """, (reservation_fee, order_id,))
     connection.commit()
 
     # add reservation
