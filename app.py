@@ -1099,8 +1099,11 @@ def try_to_register():
     if(res==None):
         res = register_user(name,password)
     if(res == True):
+        token = get_user_token(name)
         return {'message':"registration successful",
-                'token': get_user_token(name)}, 201
+                'token': token,
+                'type':get_from_database('type', 'user', 'token',token)
+                }, 201
     elif(res==None):
         return {'message':"something went wrong, try again"},500
     else:
